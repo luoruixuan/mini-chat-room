@@ -45,7 +45,7 @@ class ChatServer(asyncore.dispatcher):
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
-        sys.stderr.write('Usage: python3 custom_server.py <host> <port>')
+        sys.stderr.write('Usage: python3 custom_server.py <host> <port>\n')
         sys.exit(1)
     host = sys.argv[1]
     port = int(sys.argv[2])
@@ -53,5 +53,5 @@ if __name__ == '__main__':
     try:
         asyncore.loop()  # 异步套接字侦测循环
     except KeyboardInterrupt:
-        sys.stderr.write('Exit')
+        sys.stderr.write('Exit\n')
         pass
