@@ -1,13 +1,17 @@
 from tkinter import *
+import sys
+sys.path.append('..')
+from client_session import *
 from chatroom import ChatroomUI
 
 HOST = '127.0.0.1'
 PORT = 8080
 
 class LoginUI:
-    def __init__(self):
+    def __init__(self, session):
         tk = Tk()
         self.tk = tk
+        self.session = session
         ft = font.Font(family='Times New Roman', size=16)
         tk.title('login')
         width, height = 500, 400
@@ -37,22 +41,23 @@ class LoginUI:
     def login(self):
         usr_name = self.entry_usr_name.get()
         pwd = self.entry_usr_pwd.get()
-        status, msg = register_to_server(usr_name, pwd)
+        status, msg = self.session.login(usr_name, pwd)
         if not status:
             messagebox.showerror('Fail', msg)
             return
         self.tk.destroy()
-        ChatroomUI(usr_name=usr_name)
+        ChatroomUI(self.session, usr_name=usr_name)
         
 
     def signup(self):
         self.tk.destroy()
-        RegisterUI()
+        RegisterUI(self.session)
 
 class RegisterUI:
-    def __init__(self):
+    def __init__(self, session):
         tk = Tk()
         self.tk = tk
+        self.session = session
         ft = font.Font(family='Times New Roman', size=15)
         tk.title('register')
         width, height = 500, 400
@@ -86,7 +91,7 @@ class RegisterUI:
 
     def login(self):
         self.tk.destroy()
-        LoginUI()
+        LoginUI(self.session)
 
     def register(self):
         usr_name = self.entry_usr_name.get()
@@ -96,7 +101,7 @@ class RegisterUI:
             messagebox.showerror('Error', 'Password does not match.')
             return
         
-        status, msg = register_to_server(usr_name, pwd)
+        status, msg = self.session.register(usr_name, pwd)
         if not status:
             messagebox.showerror('Fail', msg)
             return
@@ -104,14 +109,7 @@ class RegisterUI:
         self.login()
         
 
-
-# TODO
-def login_to_server(usr_name, pwd):
-    return True, 'Succeed.'
-
-# TODO
-def register_to_server(usr_name, pwd):
-    return True, 'Registered successfully.'
-
 if __name__ == '__main__':
-    LoginUI().tk.mainloop()
+    HOST = '127.0.0.1'
+    PORT = 8080
+    LoginUI(ClientSession(HOST, PORT)).tk.mainloop()

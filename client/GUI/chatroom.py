@@ -1,7 +1,8 @@
 from tkinter import *
 
 class ChatroomUI:
-    def __init__(self, usr_name, **args):
+    def __init__(self, session, usr_name, **args):
+        self.session = session
         self.usr_name = usr_name
         tk = Tk()
         self.tk = tk
@@ -51,7 +52,7 @@ class ChatroomUI:
             t.config(yscrollcommand=bar.set,width=20,height=20,background='#ffffff')
             bar.pack(side=RIGHT,fill=Y)
             t.pack(side=LEFT,fill=BOTH)
-            lst = get_friend_list(self.usr_name)
+            lst = self.session.get_friend_list(self.usr_name)
             self.t=t
             t.insert(END, '\n'.join(lst))
             t['state']='disabled'
@@ -79,7 +80,7 @@ class ChatroomUI:
     def send_friend_request(self, tl):
         friend_name = self.entry_usr_name.get()
         vm = self.entry_vm.get()
-        status, msg = send_friend_request_to_server(self.usr_name, friend_name, vm)
+        status, msg = self.session.send_friend_request(self.usr_name, friend_name, vm)
         if status:
             messagebox.showinfo('Succeed', msg)
             tl.destroy()
@@ -90,7 +91,7 @@ class ChatroomUI:
         try:
             assert self.chatrooms.winfo_exists()==1
         except:
-            lst = get_chat_rooms(self.usr_name)
+            lst = self.session.get_chat_rooms(self.usr_name)
             cr = Toplevel(self.tk)
             self.chatrooms = cr
             cr.title('Chat room list')
@@ -126,7 +127,7 @@ class ChatroomUI:
     def send_enter_chat_room_request(self, tl):
         roomID = self.entry_usr_name.get()
         password = self.entry_vm.get()
-        status, msg = send_enter_chat_room_request_to_server(self.usr_name, roomID, password)
+        status, msg = self.session.enter_chat_room_request(self.usr_name, roomID, password)
         if status:
             messagebox.showinfo('Succeed', msg)
             tl.destroy()
@@ -134,7 +135,7 @@ class ChatroomUI:
             messagebox.showerror('Fail', msg)
 
     def CreateChatRoom(self):
-        status, msg = send_create_chat_room_to_server(self.usr_name)
+        status, msg = self.session.create_chat_room_request(self.usr_name)
         if status:
             messagebox.showinfo('Succeed', msg)
         else:
@@ -153,26 +154,10 @@ class ChatroomUI:
         pass
     
 
-# TODO
-def get_friend_list(name):
-    return ['Alice', 'Bob', 'Carol']
 
-# TODO
-def get_chat_rooms(name):
-    return ['aaa', 'bbb', 'ccc','d','e','f']
-
-# TODO
-def send_friend_request_to_server(usr_name, friend_name, ver_msg):
-    return True, 'Succeed'
-
-# TODO
-def send_create_chat_room_to_server(usr_name):
-    return True, 'Succeed'
-
-# TODO
-def send_enter_chat_room_request_to_server(usr_name, room_id, password):
-    return True, 'Succeed'
 
 if __name__ == '__main__':
-    x = ChatroomUI('233')
+    HOST = '127.0.0.1'
+    PORT = 8080
+    x = ChatroomUI(ClientSession(HOST, PORT), '233')
     x.tk.mainloop()
