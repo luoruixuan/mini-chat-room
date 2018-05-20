@@ -2,6 +2,9 @@
 
 import socket
 import json
+import threading
+import time
+import random
 
 HOST = '127.0.0.1'
 PORT = 8080
@@ -11,14 +14,45 @@ class ClientSession:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((host, port))
         self.MAX_BUFSIZE = 1024
+        self.msg_func = None
+        self.receiver = threading.Thread(target=lambda:self.recv())
+        self.receiver.start()
+        self.waiting = {}
+        self.now = random.randint(0, 65535)
+
+    def recv(self):
+        data = []
+        while True:
+            time.sleep(0.1)
+            res = self.socket.recv(self.MAX_BUFSIZE)
+            data.append(res)
+            if res.endswith('\r\n'):
+                msg = ''.join(data)
+                data = []
+                js = json.loads(msg.strip())
+                if js['type']=='response':
+                    self.waiting[js['seq']] = js
+                else:
+                    self.msg_func(js)
+                
+            
 
     def __del__(self):
+        self.receiver.stop()
+        self.receiver.join()
         self.socket.close()
 
     def send(self, request):
+        seq = self.now
+        request['seq'] = seq
+        self.now += 1
+        self.waiting[seq] = None
         s = json.dumps(request) # json to string
-        self.socket.send(s)
-        res = self.socket.recv(self.MAX_BUFSIZE)
+        self.socket.send(s.encode())
+        while self.waiting[seq] is None:
+            time.sleep(0.5)
+        res = self.waiting[seq]
+        self.waiting.pop(seq)
         return json.loads(res)
 
     def login(self, usr_name, pwd):
@@ -39,7 +73,7 @@ class ClientSession:
         status, msg = res['status'], res['msg']
         return status, msg
 
-    def get_friend_list(self, name):
+    def get_friend_list(self, usr_name):
         request = {'type':'command',
                    'msg':'get_friend_list',
                    'usr_name': usr_name}
@@ -47,12 +81,13 @@ class ClientSession:
         status, msg = res['status'], res['msg']
         return status, msg
 
-    def get_chat_rooms(self, name):
+    def get_chat_rooms(self, usr_name):
         request = {'type':'command',
                    'msg':'get_chat_rooms',
                    'usr_name': usr_name}
-        res = self.send(request)
-        status, msg = res['status'], res['msg']
+        #res = self.send(request)
+        #status, msg = res['status'], res['msg']
+        return True, [1,2,3,4,5]
         return status, msg
 
     def send_friend_request(self, usr_name, friend_name, ver_msg):
@@ -82,5 +117,23 @@ class ClientSession:
         res = self.send(request)
         status, msg = res['status'], res['msg']
         return status, msg
+
+    def get_room_info(self, cid):
+        request = {'type':'command',
+                   'msg':'get_room_info',
+                   'room_id':cid}
+        #res = self.send(request)
+        #status, msg = res['status'], res['msg']
+        return True, {'creator':'233', 'name':'hahaha', 'ID':1}
+        return status, msg
+
+    def send_msg(self, cid, msg):
+        request = {'type':'group_message',
+                   'msg':msg,
+                   'room_id':cid}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, msg
+
 
     
