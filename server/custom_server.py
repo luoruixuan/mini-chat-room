@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import socket
 import asyncore
 from project_logger import logger
+from chat_session import ChatSession
+from rooms import Hall, GroupRoom
 
 
 class ChatServer(asyncore.dispatcher):
@@ -23,10 +26,11 @@ class ChatServer(asyncore.dispatcher):
         self.set_reuse_addr()
         self.bind((host, port))
         self.listen(10)
+        self.conn_sessions = []  # 连接列表
         self.active_users = {}  # 活跃用户, {"用户名": chat_session}
-        self.hall = object()  # 大厅，所有活跃群和活跃用户将会在这里被记录
-        self.group_rooms = {} # 群
-        self.single_rooms = {} # 一对一聊天
+        self.hall = Hall(self, 'Hall')  # 大厅，所有活跃群和活跃用户将会在这里被记录
+        self.group_rooms = {}  # 群
+        self.single_rooms = {}  # 一对一聊天
 
     def handle_accept(self):
         '''
@@ -35,5 +39,19 @@ class ChatServer(asyncore.dispatcher):
         :return:
         '''
         conn, addr = self.accept()
+        chat_session = ChatSession(self, conn)
+        self.conn_sessions.append(chat_session)
 
-    pass
+
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        sys.stderr.write('Usage: python3 custom_server.py <host> <port>')
+        sys.exit(1)
+    host = sys.argv[1]
+    port = int(sys.argv[2])
+    cus_server = ChatServer(host, port)
+    try:
+        asyncore.loop()  # 异步套接字侦测循环
+    except KeyboardInterrupt:
+        sys.stderr.write('Exit')
+        pass

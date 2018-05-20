@@ -58,7 +58,7 @@ class CommandHandler(object):
         "type": "group_message",
         "msg": "Hello world!",
         "from": "用户1",
-        "to": "用户2",
+        "to": "组1",
         "timestamp": 15300000000,
         }
         :param session:
@@ -72,13 +72,27 @@ class CommandHandler(object):
             if cmd_dict['type'] == 'command':
                 # 调用对应的处理函数去解决，不同层级有不同的处理函数
                 # 前缀为 do_
-                pass
+                cmd = cmd_dict['msg'].split(' ')[0]
+                method = getattr(self, 'do_' + cmd, None)
+                try:
+                    method(session, cmd_dict['msg'])
+                except:
+                    raise BadCmd
+
             elif cmd_dict['type'] == 'group_message':
-                pass
+                # 组消息
+                # 将字典传给 do_group_message
+                method = getattr(self, 'do_group_message', None)
+                try:
+                    method(session, cmd_dict)
+                except:
+                    raise BadCmd
+
             elif cmd_dict['type'] == 'single_message':
+                # 一对一消息，todo
                 pass
             else:
-                raise (BadCmd)
+                raise BadCmd
         except Exception as err:
             logger.error("cmd_json explain error: \n%s\n%s", cmd_json, traceback.format_exc())
             self.unknown(session, cmd_json)
@@ -109,7 +123,7 @@ class Room(CommandHandler):
 
     def broadcast(self, session, line):
         '''
-        广播消息给除session自己之外的所有用户
+        广播消息给除session自己之外的所有当前房间内用户
         :param session:
         :param line:
         :return:
@@ -185,6 +199,12 @@ class Hall(Room):
         :param line:
         :return:
         '''
+        group_name = line.split(' ', 1)[1]
+        if group_name in self.server.group_rooms:
+            session.push(ServerResponse('group %s existed' % group_name) + '\r\n')
+            return
+        self.server.group_rooms[group_name] = GroupRoom(self.server)  # 创建群
+        session.enter(self.server.group_rooms[group_name])
 
     def do_enter_group(self, session, line):
         '''
@@ -200,12 +220,16 @@ class Hall(Room):
     def do_enter_single(self, session, line):
         '''
         单独建立一个聊天
+        命令msg为 enter_single single_name
         :param session:
         :param line:
         :return:
         '''
         single_name = line.split(' ', 1)[1]
+        if single_name in self.server.single_rooms:
+            pass
         session.enter(self.server.single_rooms[single_name])
+
 
 class GroupRoom(Room):
     '''
@@ -214,6 +238,7 @@ class GroupRoom(Room):
     online
     back
     '''
+
     def add(self, session):
         '''
         添加新用户进群
@@ -223,3 +248,49 @@ class GroupRoom(Room):
         '''
         self.sessions.append(session)
         session.push(ServerResponse('Welcome to group %s!' % self.room_name) + '\r\n')
+        self.broadcast(session, ServerResponse(session.user_name + ' entered the room'))
+
+    def do_online(self, session, line):
+        '''
+        查看房间内有哪些其他用户
+        :param session:
+        :param line:
+        :return:
+        '''
+        user_sessions = self.sessions
+        session.push(ServerResponse(user_sessions) + '\r\n')
+
+    def do_back(self, session, line):
+        '''
+        返回到Hall，离开群
+        :param session:
+        :param line:
+        :return:
+        '''
+        session.enter(self.server.hall)
+        self.sessions.remove(session)
+
+    def do_group_message(self, session, group_msg_dict):
+        '''
+        {
+        "type": "group_message",
+        "msg": "Hello world!",
+        "from": "用户1",
+        "to": "组1",
+        "timestamp": 15300000000,
+        }
+        :param session:
+        :param group_msg_dict:
+        :return:
+        '''
+        group_msg_json = json.dumps(group_msg_dict, encoding='utf-8', ensure_ascii='False')
+        self.broadcast(session, group_msg_json)  # 直接把这个json转发给别的session
+
+
+def SingleRoom(Room):
+    '''
+    一对一聊天
+    :param Room:
+    :return:
+    '''
+    pass

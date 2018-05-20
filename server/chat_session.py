@@ -20,6 +20,7 @@ class ChatSession(asynchat.async_chat):
     def enter(self, room):
         '''
         进入某一个房间，可以是群聊房间，也可以是大厅，todo，一对一房间
+        todo 目前一个用户只能在一个房间里
         :param room:
         :return:
         '''
