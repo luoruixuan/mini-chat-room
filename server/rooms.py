@@ -49,48 +49,47 @@ class CommandHandler(object):
         '''
         session.push(ServerResponse('bad command', False) + '\r\n')  # 这里用push，是async_chat的方式
 
+    def handle(self, session, cmd_json):
+        '''
+        处理命令
+        采用字符串json对象的形式进行消息传递
+        必有属性：type，别的字段后面再议
+        见used_jsons.py
+        :param session:
+        :param cmd_json:
+        :return:
+        '''
+        if not cmd_json:
+            return
+        try:
+            cmd_dict = json.loads(cmd_json, encoding='utf-8')
+            if cmd_dict['type'] == 'command':
+                # 调用对应的处理函数去解决，不同层级有不同的处理函数
+                # 前缀为 do_
+                method = getattr(self, 'do_' + cmd_dict['msg'], None)
+                try:
+                    method(session, cmd_dict)  # 把字典传进去
+                except:
+                    raise BadCmd
 
-def handle(self, session, cmd_json):
-    '''
-    处理命令
-    采用字符串json对象的形式进行消息传递
-    必有属性：type，别的字段后面再议
-    见used_jsons.py
-    :param session:
-    :param cmd_json:
-    :return:
-    '''
-    if not cmd_json:
-        return
-    try:
-        cmd_dict = json.loads(cmd_json, encoding='utf-8')
-        if cmd_dict['type'] == 'command':
-            # 调用对应的处理函数去解决，不同层级有不同的处理函数
-            # 前缀为 do_
-            method = getattr(self, 'do_' + cmd_dict['msg'], None)
-            try:
-                method(session, cmd_dict)  # 把字典传进去
-            except:
+            elif cmd_dict['type'] == 'group_message':
+                # 组消息
+                # 将字典传给 do_group_message
+                method = getattr(self, 'do_group_message', None)
+                try:
+                    method(session, cmd_dict)
+                except:
+                    raise BadCmd
+
+            elif cmd_dict['type'] == 'single_message':
+                # 一对一消息，todo
+                pass
+            else:
                 raise BadCmd
-
-        elif cmd_dict['type'] == 'group_message':
-            # 组消息
-            # 将字典传给 do_group_message
-            method = getattr(self, 'do_group_message', None)
-            try:
-                method(session, cmd_dict)
-            except:
-                raise BadCmd
-
-        elif cmd_dict['type'] == 'single_message':
-            # 一对一消息，todo
-            pass
-        else:
-            raise BadCmd
-    except Exception as err:
-        logger.error("cmd_json explain error: \n%s\n%s", cmd_json, traceback.format_exc())
-        self.unknown(session, cmd_json)
-        return
+        except Exception as err:
+            logger.error("cmd_json explain error: \n%s\n%s", cmd_json, traceback.format_exc())
+            self.unknown(session, cmd_json)
+            return
 
 
 class Room(CommandHandler):
@@ -304,7 +303,7 @@ class GroupRoom(Room):
         session.push(ServerResponse('Succeed.') + '\r\n')
 
 
-def SingleRoom(Room):
+class SingleRoom(Room):
     '''
     一对一聊天
     :param Room:
