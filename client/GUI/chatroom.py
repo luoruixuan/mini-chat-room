@@ -166,7 +166,6 @@ class ChatroomUI:
     def ShowSetting(self):
         pass
     
-    # TODO
     def OpenChatRoom(self, cid):
         status, info = self.session.get_room_info(cid)
         if not status:
@@ -210,17 +209,38 @@ class Room:
         but_cl.pack(side=LEFT, padx=15)
 
         # 消息框
-        row = Frame(tl)
+        row = Label(tl)
         row.pack(expand='yes', padx=15)
-        t = Text(row, borderwidth=0, font=self.ft)
+
+        # 成员
+        f0 = Frame(tl)
+        t = Text(f0, font=self.ft, width=10)
+        bar = Scrollbar(f0)
+        bar.config(command=t.yview)
+        t.config(yscrollcommand=bar.set)
+        bar.pack(side=RIGHT, fill=Y)
+        t.pack(side=RIGHT, anchor='nw')
+        for m in info['members']:
+            t.insert(END, m+'\n')
+        t['state']='disabled'
+        self.usr_box = t
+        f0.pack(side=RIGHT,padx=15)
+
+        # 历史消息
+
+        row = Frame(tl)
+        t = Text(row, font=self.ft)
         bar = Scrollbar(row)
         bar.config(command=t.yview)
         t.config(yscrollcommand=bar.set)
         bar.pack(side=RIGHT,fill=Y)
         t.pack(expand='yes', anchor='nw')
+        row.pack(padx=15)
         t['state']='disabled'
         hist_box = t
         self.hist_box = hist_box
+
+        #tl.protocol('WM_DELETE_WINDOW', lambda:self.leave(cid))
         
     def send_msg(self, cid, box):
         msg = box.get()
@@ -238,6 +258,28 @@ class Room:
         self.hist_box['state']='normal'
         self.hist_box.insert(END, str(msg)+'\n')
         self.hist_box['state']='disabled'
+
+    def person_in(self, name):
+        self.usr_box['state']='normal'
+        self.usr_box.insert(END, name+'\n')
+        self.usr_box['state']='disabled'
+    def person_out(self, name):
+        self.usr_box['state']='normal'
+        all_names = self.usr_box.get(0.0, END).split('\n')
+        self.usr_box.delete(0.0, END)
+        for i, n in enumerate(all_names):
+            if n == name:
+                break
+        if i < len(all_names):
+            all_names.pop(i)
+        else:
+            print('No name %s !\n'%name)
+        self.usr_box.insert(END, '\n'.join(all_names))
+        self.usr_box['state']='disabled'
+
+    def leave(self, cid):
+        self.UI.session.leave_room(self.usr_name, cid)
+        self.UI.rooms.pop(cid)
     
 
 

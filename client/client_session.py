@@ -29,7 +29,7 @@ class ClientSession:
             if res.endswith('\r\n'):
                 msg = ''.join(data)
                 data = []
-                js = json.loads(msg.strip())
+                js = json.loads(msg.strip(), encoding='utf-8')
                 if js['type']=='response':
                     self.waiting[js['seq']] = js
                 else:
@@ -48,12 +48,12 @@ class ClientSession:
         self.now += 1
         self.waiting[seq] = None
         s = json.dumps(request) # json to string
-        self.socket.send(s.encode())
-        while self.waiting[seq] is None:
+        self.socket.send(s.encode('utf-8'))
+        while self.waiting[seq] is None:    # wait for response
             time.sleep(0.5)
         res = self.waiting[seq]
         self.waiting.pop(seq)
-        return json.loads(res)
+        return res
 
     def login(self, usr_name, pwd):
         request = {'type':'command',
@@ -124,7 +124,7 @@ class ClientSession:
                    'room_id':cid}
         #res = self.send(request)
         #status, msg = res['status'], res['msg']
-        return True, {'creator':'233', 'name':'hahaha', 'ID':1}
+        return True, {'creator':'233', 'name':'hahaha', 'ID':1, 'members':['aaa','bbb','ccc']}
         return status, msg
 
     def send_msg(self, cid, msg):
@@ -135,5 +135,13 @@ class ClientSession:
         status, msg = res['status'], res['msg']
         return status, msg
 
+    def leave_room(self, usr_name, room_id):
+        request = {'type':'command',
+                   'msg':'leave_chat_room',
+                   'usr_name': usr_name,
+                   'room_id':room_id}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, msg
 
     
