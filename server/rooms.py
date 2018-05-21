@@ -31,7 +31,7 @@ def ServerResponse(msg, status=True, info=''):
     :return:
     '''
     response_dict = dict(type='server_response', status=status, msg=msg, info=info)
-    response_json = json.dumps(response_dict, ensure_ascii='False')
+    response_json = json.dumps(response_dict, ensure_ascii=False)
     return response_json
 
 
