@@ -16,7 +16,7 @@ class ChatServer(asyncore.dispatcher):
     def __init__(self, host, port):
         '''
         初始化服务器，侦听用户连接请求
-        保存用户名user_name和session的映射关系，防止名字冲突
+        保存用户名usr_name和session的映射关系，防止名字冲突
         初始化大厅Hall，以及一个群（Todo)
         :param host:
         :param port:

@@ -148,7 +148,7 @@ class Hall(Room):
         :return:
         '''
         self.sessions.append(session)
-        if session.user_name == '':
+        if session.usr_name == '':
             # 空用户名表示一个未注册的用户
             session.push((ServerResponse('please login') + '\r\n').encode('utf-8'))
         else:
@@ -161,14 +161,14 @@ class Hall(Room):
         :param cmd_dict:
         :return:
         '''
-        name = cmd_dict['user_name']
+        name = cmd_dict['usr_name']
         if not name:
-            session.push((ServerResponse('user_name empty', False) + '\r\n').encode('utf-8'))
+            session.push((ServerResponse('usr_name empty', False) + '\r\n').encode('utf-8'))
         elif name in self.server.active_users:
-            session.push((ServerResponse('user_name exist', False) + '\r\n').encode('utf-8'))
+            session.push((ServerResponse('usr_name exist', False) + '\r\n').encode('utf-8'))
         else:
-            session.user_name = name
-            self.server.active_users[session.user_name] = session  # 服务器端保存新用户的名称，映射到它的会话
+            session.usr_name = name
+            self.server.active_users[session.usr_name] = session  # 服务器端保存新用户的名称，映射到它的会话
             session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_logout(self, session, cmd_dict):
@@ -178,7 +178,7 @@ class Hall(Room):
         :param cmd_dict:
         :return:
         '''
-        del self.server.active_users[session.user_name]  # 服务器活跃用户列表中删除
+        del self.server.active_users[session.usr_name]  # 服务器活跃用户列表中删除
         self.sessions.remove(session)  # 大厅中删除
         session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
         raise EndSession  # 抛出结束会话异常
@@ -194,7 +194,7 @@ class Hall(Room):
         if group_name in self.server.group_rooms:
             session.push((ServerResponse('group exist', False) + '\r\n').encode('utf-8'))
             return
-        self.server.group_rooms[group_name] = GroupRoom(self.server, group_name, session.user_name)  # 创建群
+        self.server.group_rooms[group_name] = GroupRoom(self.server, group_name, session.usr_name)  # 创建群
         self.sessions.remove(session)  # 大厅中删除
         session.enter(self.server.group_rooms[group_name])
         session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
@@ -253,7 +253,7 @@ class GroupRoom(Room):
         :return:
         '''
         self.sessions.append(session)
-        broad_dict = dict(type='person_in', group_name=self.room_name, user_name=session.user_name)
+        broad_dict = dict(type='person_in', group_name=self.room_name, usr_name=session.usr_name)
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(session, broad_json)
 
@@ -267,7 +267,7 @@ class GroupRoom(Room):
         info_dict = dict(creator=self.creator, group_name=self.room_name, members=list())
         for user_session in self.sessions:
             # 取出所有用户名
-            info_dict['members'].append(user_session.user_name)
+            info_dict['members'].append(user_session.usr_name)
         session.push((ServerResponse('Succeed.', status=True, info=info_dict) + '\r\n').encode('utf-8'))
 
     def do_leave_group(self, session, cmd_dict):
@@ -279,7 +279,7 @@ class GroupRoom(Room):
         :return:
         '''
         self.sessions.remove(session)  # 当前房间中删除
-        broad_dict = dict(type='person_out', group_name=self.room_name, user_name=session.user_name)
+        broad_dict = dict(type='person_out', group_name=self.room_name, usr_name=session.usr_name)
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(session, broad_json)
         session.enter(self.server.hall)  # 返回大厅
@@ -296,7 +296,7 @@ class GroupRoom(Room):
         :param group_msg_dict:
         :return:
         '''
-        broad_dict = dict(type='person_speak', group_name=self.room_name, user_name=session.user_name,
+        broad_dict = dict(type='person_speak', group_name=self.room_name, usr_name=session.usr_name,
                           message=group_msg_dict['msg'])
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(session, broad_json)

@@ -15,7 +15,7 @@ class ChatSession(asynchat.async_chat):
         self.server = server
         self.set_terminator('\r\n'.encode('utf-8'))  # 消息终止标志\r\n
         self.data = []  # 数据缓冲区（一次接收的消息可能不完整，用缓冲区存直到出现终止符）
-        self.user_name = ''  # 用户名
+        self.usr_name = ''  # 用户名
         self.enter(self.server.hall)  # 创建之后就进入大厅
 
     def enter(self, room):
