@@ -69,7 +69,10 @@ class CommandHandler(object):
                 method = getattr(self, 'do_' + cmd_dict['msg'], None)
                 try:
                     method(session, cmd_dict)  # 把字典传进去
-                except:
+                except EndSession as end:
+                    # 发现了是结束会话，抛给上层
+                    raise EndSession
+                except Exception as err:
                     raise BadCmd
 
             elif cmd_dict['type'] == 'group_message':
