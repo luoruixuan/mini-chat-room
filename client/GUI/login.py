@@ -1,4 +1,5 @@
 from tkinter import *
+from tkinter import font, messagebox
 import sys
 sys.path.append('..')
 from client_session import *

@@ -6,7 +6,7 @@ from client_session import *
 class ChatroomUI:
     def __init__(self, session, usr_name, **args):
         self.session = session
-        self.session.msg_func = lambda:self.msg_func
+        #self.session.msg_func = self.msg_func
         self.usr_name = usr_name
         self.rooms = {}
         tk = Tk()
@@ -44,13 +44,36 @@ class ChatroomUI:
 
         but_ccr = Button(tk, text='Create chat room', font=ft, command=lambda:self.CreateChatRoom())
         but_ccr.place(x=250, y=330)
+        tk.protocol('WM_DELETE_WINDOW', lambda:self.logout())
         self.friendlist = None
         self.chatrooms = None
+        self.tk.after(0, self.loop)
+
+    def loop(self):
+        try:
+            js = self.session.queue.get_nowait()
+            self.msg_func(js)
+        except:
+            pass
+        self.tk.after(500, self.loop)
 
     def msg_func(self, js):
-        cid = js['ID']
-        if cid in rooms:
-            self.rooms[cid].recv_msg(js['message'])
+        if js['type'] == 'person_speak':
+            room_name = js['group_name']
+            if room_name in self.rooms:
+                self.rooms[room_name].recv_msg(js['usr_name']+': '+js['message'])
+        elif js['type'] == 'person_in':
+            room_name = js['group_name']
+            if room_name in self.rooms:
+                self.rooms[room_name].person_in(js['usr_name'])
+        elif js['type'] == 'person_out':
+            room_name = js['group_name']
+            if room_name in self.rooms:
+                self.rooms[room_name].person_out(js['usr_name'])
+
+    def logout(self):
+        self.tk.destroy()
+        self.session.logout(self.usr_name)
 
     def ShowFriends(self):
         try:
@@ -127,34 +150,49 @@ class ChatroomUI:
         width, height = 500, 400
         tl.minsize(width, height)
         tl.maxsize(width, height)
-        Label(tl, text='Room ID: ', font=self.ft).place(x=50, y=150)
+        Label(tl, text='Room name: ', font=self.ft).place(x=50, y=150)
         Label(tl, text='Password: ', font=self.ft).place(x=50, y=190)
         
-        var_usr_name = StringVar()
-        entry_usr_name = Entry(tl, textvariable=var_usr_name, font=self.ft)
-        entry_usr_name.place(x=200, y=150)
-        self.entry_usr_name = entry_usr_name
-        var_vm = StringVar()
-        entry_vm = Entry(tl, textvariable=var_vm, font=self.ft)
-        entry_vm.place(x=200, y=190)
-        self.entry_vm = entry_vm
+        RN = Entry(tl, font=self.ft)
+        RN.place(x=200, y=150)
+        PW = Entry(tl, font=self.ft)
+        PW.place(x=200, y=190)
 
-        but_sd = Button(tl, text='send', font=self.ft, command=lambda:self.send_enter_chat_room_request(tl))
+        but_sd = Button(tl, text='send', font=self.ft, command=lambda:self.enter_chat_room_request(RN, PW, tl))
         but_sd.place(x=170, y=240)
-    def send_enter_chat_room_request(self, tl):
-        roomID = self.entry_usr_name.get()
-        password = self.entry_vm.get()
-        status, msg = self.session.enter_chat_room_request(self.usr_name, roomID, password)
+    def enter_chat_room_request(self, RN, PW, tl):
+        room_name , password = RN.get(), PW.get()
+        status, msg = self.session.enter_chat_room_request(self.usr_name, room_name, password)
         if status:
             messagebox.showinfo('Succeed', msg)
             tl.destroy()
+            self.OpenChatRoom(room_name)
         else:
             messagebox.showerror('Fail', msg)
 
     def CreateChatRoom(self):
-        status, msg = self.session.create_chat_room_request(self.usr_name)
+        tl = Toplevel(self.tk)
+        tl.title('Create chat room')
+        width, height = 500, 400
+        tl.minsize(width, height)
+        tl.maxsize(width, height)
+        Label(tl, text='Room name: ', font=self.ft).place(x=50, y=150)
+        Label(tl, text='Password: ', font=self.ft).place(x=50, y=190)
+        
+        RN = Entry(tl, font=self.ft)
+        RN.place(x=200, y=150)
+        PW = Entry(tl, font=self.ft)
+        PW.place(x=200, y=190)
+
+        but_sd = Button(tl, text='send', font=self.ft, command=lambda:self.create_chat_room_request(RN, PW, tl))
+        but_sd.place(x=170, y=240)
+    def create_chat_room_request(self, RN, PW, tl):
+        room_name , password = RN.get(), PW.get()
+        status, msg = self.session.create_chat_room_request(self.usr_name, room_name, password)
         if status:
             messagebox.showinfo('Succeed', msg)
+            tl.destroy()
+            self.OpenChatRoom(room_name)
         else:
             messagebox.showerror('Fail', msg)
             
@@ -166,12 +204,12 @@ class ChatroomUI:
     def ShowSetting(self):
         pass
     
-    def OpenChatRoom(self, cid):
-        status, info = self.session.get_room_info(cid)
+    def OpenChatRoom(self, room_name):
+        status, info = self.session.get_room_info(self.usr_name, room_name)
         if not status:
             messagebox.showerror('Fail', info)
             return
-        self.rooms[cid] = Room(self, info)
+        self.rooms[room_name] = Room(self, info)
 
 class Room:
     def __init__(self, UI, info):
@@ -180,17 +218,18 @@ class Room:
         self.usr_name = UI.usr_name
         self.info = info
         self.ft = UI.ft
-        cid = info['ID']
+        room_name = info['group_name']
         tl = Toplevel(self.tk)
-        tl.title('Chat room %d'%cid)
+        tl.title('Chat room %s'%room_name)
         width, height = 500, 400
         tl.minsize(width, height)
         tl.maxsize(width, height)
+        self.tl = tl
         # 房间信息、房主设置
         row = Frame(tl)
         row.pack()
-        Label(row, text='Room ID: '+str(cid), font=self.ft).pack(side=LEFT, padx=15)
-        Label(row, text='Room name: '+info['name'], font=self.ft).pack(side=LEFT, padx=15)
+        Label(row, text='User name: '+self.usr_name, font=self.ft).pack(side=LEFT, padx=15)
+        Label(row, text='Room name: '+room_name, font=self.ft).pack(side=LEFT, padx=15)
         setting_act = lambda:self.chat_room_setting(info)
         if self.usr_name != info['creator']:
             setting_act = lambda:messagebox.showerror('Fail', 'You are not the creator of the room.')
@@ -202,7 +241,7 @@ class Room:
         input_box = Entry(row, font=self.ft)
         input_box.pack(side=LEFT, padx=15)
 
-        but_sd = Button(row, text='send', font=self.ft, command=lambda:self.send_msg(cid, input_box))
+        but_sd = Button(row, text='send', font=self.ft, command=lambda:self.send_msg(room_name, input_box))
         but_sd.pack(side=LEFT, padx=15)
 
         but_cl = Button(row, text='clear', font=self.ft, command=lambda:self.clear_msg())
@@ -240,11 +279,12 @@ class Room:
         hist_box = t
         self.hist_box = hist_box
 
-        #tl.protocol('WM_DELETE_WINDOW', lambda:self.leave(cid))
+        tl.protocol('WM_DELETE_WINDOW', lambda:self.leave(room_name))
         
-    def send_msg(self, cid, box):
+    def send_msg(self, room_name, box):
         msg = box.get()
-        status, msg = self.UI.session.send_msg(cid, msg)
+        self.recv_msg(self.usr_name+': '+msg)
+        status, msg = self.UI.session.send_msg(room_name, msg)
         if not status:
             messagebox.showerror('Fail', msg)
             return
@@ -277,9 +317,10 @@ class Room:
         self.usr_box.insert(END, '\n'.join(all_names))
         self.usr_box['state']='disabled'
 
-    def leave(self, cid):
-        self.UI.session.leave_room(self.usr_name, cid)
-        self.UI.rooms.pop(cid)
+    def leave(self, room_name):
+        self.tl.destroy()
+        self.UI.session.leave_room(self.usr_name, room_name)
+        self.UI.rooms.pop(room_name)
     
 
 

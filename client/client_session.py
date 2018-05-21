@@ -5,6 +5,7 @@ import json
 import threading
 import time
 import random
+import queue
 
 HOST = '127.0.0.1'
 PORT = 8080
@@ -14,26 +15,31 @@ class ClientSession:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((host, port))
         self.MAX_BUFSIZE = 1024
-        self.msg_func = None
+        self.queue = queue.Queue(500)
         self.receiver = threading.Thread(target=lambda:self.recv())
         self.receiver.start()
-        self.waiting = {}
-        self.now = random.randint(0, 65535)
+        self.lock = threading.Lock()
+        self.waiting = None
 
     def recv(self):
         data = []
         while True:
             time.sleep(0.1)
             res = self.socket.recv(self.MAX_BUFSIZE)
+            res = bytes.decode(res, encoding='utf-8')
             data.append(res)
             if res.endswith('\r\n'):
                 msg = ''.join(data)
                 data = []
                 js = json.loads(msg.strip(), encoding='utf-8')
-                if js['type']=='response':
-                    self.waiting[js['seq']] = js
+                print('Receive: '+str(js))
+                if js['type']=='server_response':
+                    if js['msg']=='please login':
+                        continue
+                    self.waiting = js
                 else:
-                    self.msg_func(js)
+                    #self.msg_func(js)
+                    self.queue.put(js)
                 
             
 
@@ -43,16 +49,17 @@ class ClientSession:
         self.socket.close()
 
     def send(self, request):
-        seq = self.now
-        request['seq'] = seq
-        self.now += 1
-        self.waiting[seq] = None
-        s = json.dumps(request) # json to string
+        self.lock.acquire()
+        self.waiting = None
+        seq = int(time.time()*1000)
+        request['timestamp'] = seq
+        s = json.dumps(request, ensure_ascii=False)+'\r\n' # json to string
+        print('Send: '+s)
         self.socket.send(s.encode('utf-8'))
-        while self.waiting[seq] is None:    # wait for response
+        while self.waiting is None:    # wait for response
             time.sleep(0.5)
-        res = self.waiting[seq]
-        self.waiting.pop(seq)
+        res = self.waiting
+        self.lock.release()
         return res
 
     def login(self, usr_name, pwd):
@@ -60,6 +67,14 @@ class ClientSession:
                    'msg':'login',
                    'usr_name': usr_name,
                    'password': pwd}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, msg
+        
+    def logout(self, usr_name):
+        request = {'type':'command',
+                   'msg':'logout',
+                   'usr_name': usr_name}
         res = self.send(request)
         status, msg = res['status'], res['msg']
         return status, msg
@@ -100,46 +115,48 @@ class ClientSession:
         status, msg = res['status'], res['msg']
         return status, msg
 
-    def create_chat_room_request(self, usr_name):
+    def create_chat_room_request(self, usr_name, group_name, password):
         request = {'type':'command',
-                   'msg':'create_chat_room',
-                   'usr_name': usr_name}
-        res = self.send(request)
-        status, msg = res['status'], res['msg']
-        return status, msg
-
-    def enter_chat_room_request(self, usr_name, room_id, password):
-        request = {'type':'command',
-                   'msg':'enter_chat_room',
+                   'msg':'create_group',
                    'usr_name': usr_name,
-                   'room_id':room_id,
-                   'password':password}
+                   'group_name': group_name,
+                   'password': password}
         res = self.send(request)
         status, msg = res['status'], res['msg']
         return status, msg
 
-    def get_room_info(self, cid):
+    def enter_chat_room_request(self, usr_name, group_name, password):
         request = {'type':'command',
-                   'msg':'get_room_info',
-                   'room_id':cid}
-        #res = self.send(request)
-        #status, msg = res['status'], res['msg']
-        return True, {'creator':'233', 'name':'hahaha', 'ID':1, 'members':['aaa','bbb','ccc']}
+                   'msg':'enter_group',
+                   'usr_name': usr_name,
+                   'group_name': group_name,
+                   'password': password}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
         return status, msg
 
-    def send_msg(self, cid, msg):
+    def get_room_info(self, usr_name, group_name):
+        request = {'type':'command',
+                   'msg':'desc_group',
+                   'usr_name': usr_name,
+                   'group_name': group_name}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, res['info']
+
+    def send_msg(self, group_name, msg):
         request = {'type':'group_message',
                    'msg':msg,
-                   'room_id':cid}
+                   'group_name': group_name}
         res = self.send(request)
         status, msg = res['status'], res['msg']
         return status, msg
 
-    def leave_room(self, usr_name, room_id):
+    def leave_room(self, usr_name, group_name):
         request = {'type':'command',
-                   'msg':'leave_chat_room',
+                   'msg':'leave_group',
                    'usr_name': usr_name,
-                   'room_id':room_id}
+                   'group_name': group_name}
         res = self.send(request)
         status, msg = res['status'], res['msg']
         return status, msg
