@@ -31,10 +31,11 @@ class ChatSession(asynchat.async_chat):
     def collect_incoming_data(self, data):
         '''
         缓存从用户收到的数据
+        转码成 unicode
         :param data:
         :return:
         '''
-        self.data.append(data)
+        self.data.append(data.decode('utf-8'))
 
     def found_terminator(self):
         '''
