@@ -1,5 +1,7 @@
 from tkinter import *
+from tkinter import filedialog
 import sys
+import os
 sys.path.append('..')
 from client_session import *
 
@@ -42,6 +44,7 @@ class ChatroomUI:
         but_ecr = Button(tk, text='Enter chat room', font=ft, command=lambda:self.EnterChatRoom())
         but_ecr.place(x=70, y=330)
 
+
         but_ccr = Button(tk, text='Create chat room', font=ft, command=lambda:self.CreateChatRoom())
         but_ccr.place(x=250, y=330)
         tk.protocol('WM_DELETE_WINDOW', lambda:self.logout())
@@ -58,6 +61,7 @@ class ChatroomUI:
         self.tk.after(500, self.loop)
 
     def msg_func(self, js):
+        print('&')
         if js['type'] == 'person_speak':
             room_name = js['group_name']
             if room_name in self.rooms:
@@ -70,6 +74,14 @@ class ChatroomUI:
             room_name = js['group_name']
             if room_name in self.rooms:
                 self.rooms[room_name].person_out(js['usr_name'])
+        elif js['type'] == 'person_share_file':
+            print('&')
+            room_name = js['group_name']
+            print('&&')
+            if room_name in self.rooms:
+                print('&&')
+                self.rooms[room_name].get_file(js)
+                print('&&')
 
     def logout(self):
         self.tk.destroy()
@@ -247,6 +259,9 @@ class Room:
         but_cl = Button(row, text='clear', font=self.ft, command=lambda:self.clear_msg())
         but_cl.pack(side=LEFT, padx=15)
 
+        but_sf = Button(row, text = 'File', font = self.ft, command=lambda:self.share_file(room_name))
+        but_sf.pack(side = LEFT, padx = 15)
+
         # 消息框
         row = Label(tl)
         row.pack(expand='yes', padx=15)
@@ -280,7 +295,37 @@ class Room:
         self.hist_box = hist_box
 
         tl.protocol('WM_DELETE_WINDOW', lambda:self.leave(room_name))
-        
+
+    def share_file(self, room_name):
+        file_name = filedialog.askopenfilename()
+        if not file_name:
+            return
+        f = open(file_name, 'r')
+        file_content = f.read()
+        f.close()
+        file_name = file_name.split('/')[-1]
+        status, msg = self.UI.session.share_file(room_name, file_name, file_content)
+        if not status:
+            messagebox.showerror('Fail', msg)
+
+    def get_file(self, js):
+        print('*')
+        user_name = js['usr_name']
+        print('**')
+        file_name = js['file_name']
+        print('**')
+        file_content = js['file_content']
+        print('**')
+        file_dir = os.getcwd()
+        print('**')
+        f = open(file_dir+'/'+file_name, 'w')
+        print('**')
+        f.write(file_content)
+        print('**')
+        f.close()
+        print('**')
+        self.recv_msg('你收到了来自' + user_name + '的文件（%s）' % file_name+',存放在了%s下'%file_dir)
+
     def send_msg(self, room_name, box):
         msg = box.get()
         self.recv_msg(self.usr_name+': '+msg)

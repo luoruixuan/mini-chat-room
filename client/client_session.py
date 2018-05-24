@@ -161,4 +161,15 @@ class ClientSession:
         status, msg = res['status'], res['msg']
         return status, msg
 
+    def share_file(self, group_name, file_name, file_content):
+        request = {
+            'type': 'file_message',
+            'file_name': file_name,
+            'file_content': file_content,
+            'group_name': group_name
+        }
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, msg
+
     

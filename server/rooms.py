@@ -87,6 +87,13 @@ class CommandHandler(object):
             elif cmd_dict['type'] == 'single_message':
                 # 一对一消息，todo
                 pass
+            elif cmd_dict['type'] == 'file_message':
+                method = getattr(self, 'do_file_message', None)
+
+                method(session, cmd_dict)
+
+                # raise BadCmd
+
             else:
                 raise BadCmd
         except Exception as err:
@@ -305,6 +312,13 @@ class GroupRoom(Room):
         self.broadcast(session, broad_json)
         session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
+    def do_file_message(self, session, file_message_dict):
+        broad_dict = dict(type='person_share_file', group_name=self.room_name,
+                          usr_name=session.usr_name, file_name=file_message_dict['file_name'],
+                          file_content=file_message_dict['file_content'])
+        broad_json = json.dumps(broad_dict, ensure_ascii=False)
+        self.broadcast(session, broad_json)
+        session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
 class SingleRoom(Room):
     '''

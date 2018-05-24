@@ -44,11 +44,13 @@ class ChatServer(asyncore.dispatcher):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        sys.stderr.write('Usage: python3 custom_server.py <host> <port>\n')
-        sys.exit(1)
-    host = sys.argv[1]
-    port = int(sys.argv[2])
+    # if len(sys.argv) != 3:
+    #     sys.stderr.write('Usage: python3 custom_server.py <host> <port>\n')
+    #     sys.exit(1)
+    # host = sys.argv[1]
+    # port = int(sys.argv[2])
+    host = '0.0.0.0'
+    port = 8080
     cus_server = ChatServer(host, port)
     try:
         asyncore.loop()  # 异步套接字侦测循环
