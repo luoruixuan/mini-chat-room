@@ -75,13 +75,9 @@ class ChatroomUI:
             if room_name in self.rooms:
                 self.rooms[room_name].person_out(js['usr_name'])
         elif js['type'] == 'person_share_file':
-            print('&')
             room_name = js['group_name']
-            print('&&')
             if room_name in self.rooms:
-                print('&&')
                 self.rooms[room_name].get_file(js)
-                print('&&')
 
     def logout(self):
         self.tk.destroy()
@@ -309,21 +305,13 @@ class Room:
             messagebox.showerror('Fail', msg)
 
     def get_file(self, js):
-        print('*')
         user_name = js['usr_name']
-        print('**')
         file_name = js['file_name']
-        print('**')
         file_content = js['file_content']
-        print('**')
         file_dir = os.getcwd()
-        print('**')
         f = open(file_dir+'/'+file_name, 'w')
-        print('**')
         f.write(file_content)
-        print('**')
         f.close()
-        print('**')
         self.recv_msg('你收到了来自' + user_name + '的文件（%s）' % file_name+',存放在了%s下'%file_dir)
 
     def send_msg(self, room_name, box):
