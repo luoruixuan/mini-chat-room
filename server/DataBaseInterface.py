@@ -70,14 +70,14 @@ class UserOperations:
         cursor.execute(sql1,(username,userpwd))
         row=cursor.fetchone()
         if row:
-            print('userid: %d'%row[0])
+            #print('userid: %d'%row[0])
             try:
                 cursor.execute(sql2,(row[0],row[0]))
                 cursor.execute(sql3,row[0])  
                 cursor.execute(sql4,row[0])               
                 results=cursor.fetchall()
                 for row1 in results:
-                    print('group id: %d'%row1[0])
+                    #print('group id: %d'%row1[0])
                     cursor.execute(sql5,(row1[0],row[0]))
                     cursor.execute(sql6,row1[0])
                 cursor.execute(sql7,row[0])
