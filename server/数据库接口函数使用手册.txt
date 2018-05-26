@@ -1,3 +1,8 @@
+连接数据库的服务器ip、端口、数据库名
+    hostip='localhost'
+    portnum='51046' #这个是根据我的电脑的TCP/IP端口设置的
+    DB='ChatMembers2018' 
+    
 1. 用户的添加、删除、查找
 class UserOperations:
     def query(self,username,userpwd='',para=0):
