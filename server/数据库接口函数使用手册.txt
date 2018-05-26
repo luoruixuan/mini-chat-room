@@ -1,6 +1,7 @@
+注意：mysql 和 sql server 有些语法不同，在定义自增的主键时要注意修改一下，以及插入的地方也要修改
 连接数据库的服务器ip、端口、数据库名
     hostip='localhost'
-    portnum='51046' #这个是根据我的电脑的TCP/IP端口设置的
+    portnum='51046' #!!!!!!这个是根据我的电脑的TCP/IP端口设置的
     DB='ChatMembers2018' 
     
 1. 用户的添加、删除、查找
@@ -99,4 +100,21 @@ class ChatGroup:
         功能：列出当前打开的群聊的所有成员
         注意：这个函数要和OpenGroup配合使用，不过创建一个群聊后是打开状态的
         返回值：成员列表GroupMemList
+	
+5. 每个群聊的消息的添加、删除、列举
+class GroupMessages:
+    def __init__(self,username,groupname):
+        参数：用户名，群聊名
+             这里初始化时打开一个群
+    def addMessage(self,promulgator,message):
+        参数：promulgator:发布消息的用户，message：str消息
+        功能：用户接收或者发布一个消息，添加到数据库里
+        返回值：0正常，-1：发布者异常（该用户查找不到），-2：添加消息异常
+    def ListMessage(self,messageDict):
+        参数：传入一个字典
+        功能：返回群聊里的所有消息，字典键值对：messageid:message 例如：{1:'hello'}
+    def deleteMessage(self,deleteList):  
+        参数：传入一个待删除的列表或者字典，列表里是messageid
+        功能：删除deleteList里面的所有消息
+        注意：这个可以和ListMessage函数一起使用，通过ListMessage查看消息，然后将要删除的消息id放入deleteList  
 
