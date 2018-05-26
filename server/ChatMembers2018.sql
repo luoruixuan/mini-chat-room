@@ -36,8 +36,8 @@ GO
 Create Table Administrator.Mem_Info
 (
 	Memid INT NOT NULL Primary Key,
-	Memname NVARCHAR(40) NOT NULL Unique,
-	MemPassword NVARCHAR(20) NOT NULL
+	Memname VARCHAR(40) NOT NULL Unique,
+	MemPassword VARCHAR(20) NOT NULL
 )
 ---------------------------------------------------------------------
 -- userid: from 0 to ...
@@ -47,8 +47,8 @@ Create Table Administrator.Mem_Info
 Create Table Users.User_Info
 (
 	Userid INT NOT NULL Primary Key,
-	Username NVARCHAR(40) NOT NULL Unique,
-	UserPassword NVARCHAR(20) NOT NULL
+	Username VARCHAR(40) NOT NULL Unique,
+	UserPassword VARCHAR(20) NOT NULL
 )
 
 Create Table Users.Friends
@@ -61,7 +61,7 @@ Create Table Users.Friends
 Create Table Users.Chatgroup
 (
 	Groupid INT NOT NULL Primary Key,
-	Groupname NVARCHAR(50),
+	Groupname VARCHAR(50),
 	GroupOwner INT NOT NULL Foreign Key References Users.User_Info(Userid) 
 )
 Create Table Users.ChatgroupMem
@@ -75,7 +75,7 @@ Create Table Users.ChatgroupMem
 Create Table Users.Online 
 (
 	Userid INT NOT NULL PRIMARY KEY,
-	IP_addrr NVARCHAR(20),
+	IP_addrr VARCHAR(20),
 	FOREIGN KEY (Userid) References Users.User_Info(Userid) 
 )
 
@@ -84,7 +84,7 @@ Create Table Users.Messages
 	Messageid INT NOT NULL PRIMARY KEY,
 	From_uid INT NOT NULL,
 	To_uid INT NOT NULL,
-	Body NVARCHAR(1000) NOT NULL,
+	Body VARCHAR(1000) NOT NULL,
 	Date_commit DATETIME NOT NULL,
 	Foreign Key (From_uid) References Users.User_Info(Userid),
 	Foreign Key (To_uid) References Users.User_Info(Userid)
@@ -93,22 +93,22 @@ Create Table Users.Messages
 -- insert database's administrators
 ---------------------------------------------------------------------
 Insert Administrator.Mem_Info(Memid, Memname, MemPassword)
-	values(0,N'lrx','123456');
+	values(0,'lrx','123456');
 Insert Administrator.Mem_Info(Memid, Memname, MemPassword)
-	values(1,N'wy','123456');
+	values(1,'wy','123456');
 Insert Administrator.Mem_Info(Memid, Memname, MemPassword)
-	values(2,N'qwh','123456');
+	values(2,'qwh','123456');
 Insert Administrator.Mem_Info(Memid, Memname, MemPassword)
-	values(3,N'ly','123456');
+	values(3,'ly','123456');
 
 Insert Users.User_Info(Userid,Username,UserPassword)
-	values(0,N'lrx','123456');
+	values(0,'lrx','123456');
 Insert Users.User_Info(Userid,Username,UserPassword)
-	values(1,N'wy','123456');
+	values(1,'wy','123456');
 Insert Users.User_Info(Userid,Username,UserPassword)
-	values(2,N'qwh','123456');
+	values(2,'qwh','123456');
 Insert Users.User_Info(Userid,Username,UserPassword)
 	values(3,N'ly','123456');
 	
 Insert Users.Chatgroup(Groupid,Groupname,Groupowner)
-	values(0,N'group1',0);
+	values(0,'group1',0);
