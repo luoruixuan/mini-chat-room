@@ -64,6 +64,7 @@ class UserFriends:
 class ChatGroup:
     成员变量：
         username: 用户名
+	    userid:用户id
         groupname: 群聊名称
         groupOwner: 群主的id
         groupid:   群聊的id
@@ -71,7 +72,7 @@ class ChatGroup:
         初始化用户名
     def CreateGroup(self,groupname=''):
         参数：群聊名
-        功能：用户username创建一个群聊
+        功能：用户username创建一个群聊，并打开该群聊
         返回值:0 成功，-1：username用户不存在,-2:groupname 这个组已存在
     def OpenGroup(self,groupname):
         参数：群聊名
@@ -87,8 +88,10 @@ class ChatGroup:
         功能：如果用户username是群主且Memname是他自己的话相当于解散群
              如果用户username是群主且Memname是其它成员，则是群主踢出成员Memname
              如果用户username不是群主且Memname是他自己则相当于用户username退出群聊
+	注意：这个函数要和OpenGroup配合使用，打开群聊后才能邀请加入
         返回值：0：成功， -1：失败
     def quertChatGroupList(self,ChatGroupList):
         参数：传入一个List
         功能：列出用户username的所有群聊，把群名放入ChatGroupList
         返回值：0正常，-1：此用户不存在
+
