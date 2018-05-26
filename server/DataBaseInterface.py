@@ -380,6 +380,19 @@ class ChatGroup:
             return 0
         else:
             return -1
+    def queryChatGroupMem(self,GroupMemList):
+        #返回当前打开的群聊的所有成员
+        #注意查询前先OpenGroup
+        conn=pymssql.connect(host= hostip,port=portnum,database=DB)
+        cursor=conn.cursor()
+        sql='Select Username \
+                From Users.User_Info as U,Users.ChatgroupMem as GM \
+                Where U.Userid=GM.Memid and GM.Groupid=%d'
+        cursor.execute(sql,self.groupid)
+        results=cursor.fetchall()
+        for row in results:
+            GroupMemList.append(row[0])
+        conn.close()
 
 
 # 消息
