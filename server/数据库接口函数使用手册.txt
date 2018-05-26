@@ -1,0 +1,89 @@
+1. 用户的添加、删除、查找
+class UserOperations:
+    def query(self,username,userpwd='',para=0):
+        参数：用户名、密码
+             para:
+                0:用户名和密码查询，用于登陆时查找
+                1：用户名查询，仅查找此用户是否存在
+        功能：
+            1. 用于登陆时验证查找
+            2. 用于其它地方，比如查询用户添加好友
+        返回值：
+            userid:正常情况下返回用户id
+            -1：查无此用户
+            -2：密码错误
+    def add(self, username, userpwd):
+        参数：用户名、密码
+        功能：添加用户，申请账号时使用
+        返回值：0：正常，-1：用户名已被占用
+    def remove(self, username, userpwd)
+        参数：用户名、密码
+        功能：注销一个账户时使用，需要验证密码
+        返回值：0：正常， -1：注销失败(用户不存在或者密码错)
+    
+2.在线用户的添加、移除、查询 
+class UserOnline:
+    def query(self,username='',userid=-1):
+        参数：用户名，用户id
+        功能：查询一个用户是否在线，如果已知用户id可以使用userid，否则用用户名查找
+        返回值：返回值：0在线， -1：不在线，-2：错误，即无此用户
+    def add(self,username='',userid=-1,IP_addr=''):
+        参数：用户名、用户id、用户ip地址
+        功能：用户登陆后将其置为在线用户,参数可选，但是username和userid必须要有一个
+        返回值：0:正常， -1：无此用户
+    def remove(self, username='', userid=-1):
+        参数：用户名、用户id
+        功能：用户下线时将其从在线状态移除，参数可选，但是username和userid必须要有一个
+        返回值：0:正常， -1：无此用户
+
+3. 查询\添加\删除好友
+class UserFriends:
+    成员变量：username
+    def __init__(self, username):
+        参数：用户名
+        功能：初始化username
+    def add(self, friendname):
+        参数：要添加的好友用户名
+        功能：此username将friendname添加为好友
+        返回值：返回值：0添加成功，-1：这个friend用户不存在
+    def remove(self, friendname):
+        参数：要移除的好友用户名
+        功能：此username将friendname移除好友表
+        返回值：返回值：0移除成功，-1：这个friend用户不存在
+    def queryFriendList(self,friendlist):
+        参数：传入一个List
+        功能：查询用户usernam，并将其好友列表放入friendlist
+        返回：好友列表
+
+4. 创建群聊、打开群聊、群成员邀请加入群聊、退出群聊、解散群
+class ChatGroup:
+    成员变量：
+        username: 用户名
+        groupname: 群聊名称
+        groupOwner: 群主的id
+        groupid:   群聊的id
+    def __init__(self,username):
+        初始化用户名
+    def CreateGroup(self,groupname=''):
+        参数：群聊名
+        功能：用户username创建一个群聊
+        返回值:0 成功，-1：username用户不存在,-2:groupname 这个组已存在
+    def OpenGroup(self,groupname):
+        参数：群聊名
+        功能:用户username打开一个他的群聊groupname
+        返回值：返回值：0正常，-1：不存在此用户username，-2：其它错误(用户username不存在群聊groupname)
+    def addGroupMem(self,Memname):
+        参数：邀请加入的成员名
+        功能：用户username邀请Memname加入群聊
+        注意：这个函数要和OpenGroup配合使用，打开群聊后才能邀请加入
+        返回值：0正常，-1：不存在此用户Memname, -2:群聊已存在此成员
+    def removeMem(self,Memname):
+        参数：要移出的成员名
+        功能：如果用户username是群主且Memname是他自己的话相当于解散群
+             如果用户username是群主且Memname是其它成员，则是群主踢出成员Memname
+             如果用户username不是群主且Memname是他自己则相当于用户username退出群聊
+        返回值：0：成功， -1：失败
+    def quertChatGroupList(self,ChatGroupList):
+        参数：传入一个List
+        功能：列出用户username的所有群聊，把群名放入ChatGroupList
+        返回值：0正常，-1：此用户不存在
