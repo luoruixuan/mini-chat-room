@@ -1,6 +1,6 @@
 import pymssql
 
-usercount=4 #用于添加用户时的userid
+# usercount=4 #用于添加用户时的userid
 #连接数据库的服务器ip、端口、数据库名
 hostip='localhost'
 portnum='51046'
@@ -36,17 +36,17 @@ class UserOperations:
         conn.close()
         return state
     def add(self, username, userpwd):
-        global usercount
+       # global usercount
         uid=self.query(username=username,para=1)
         if uid!=-1: #此用户已存在
             return -1
         conn =pymssql.connect(host= hostip,port=portnum,database=DB)
         cursor=conn.cursor()    #游标
-        sql='INSERT INTO Users.User_Info(Userid,Username,UserPassword) Values(%d,%s,%s)'
+        sql='INSERT INTO Users.User_Info(Username,UserPassword) Values(%s,%s)'
         try:
-            cursor.execute(sql,(usercount, username, userpwd))
+            cursor.execute(sql,(username, userpwd))
             conn.commit()
-            usercount=usercount+1
+            #usercount=usercount+1
         except:
             conn.rollback()
             conn.close()
@@ -56,23 +56,41 @@ class UserOperations:
         
     def remove(self, username, userpwd):
         #返回值：0正常，-1用户不存在或者密码错
-        querystate=self.query(username,userpwd)
-        if querystate<0:    #无此用户
-            return -1
-        else:
-            conn =pymssql.connect(host= hostip,port=portnum,database=DB)
-            cursor=conn.cursor()
+        conn =pymssql.connect(host= hostip,port=portnum,database=DB)
+        cursor=conn.cursor()
+        # 由于userid是Users.Friends\User.Online\Users.Chatgroup\Users.ChatgroupMem的外码,
+        # 必须先删除这里的相关信息，此外Groupid又是Users.ChatgroupMem的外码，所以这里也要删除
+        sql1='Select Userid From Users.User_Info Where Username=%s and UserPassWord=%s'
+        sql2='Delete From Users.Friends Where Userid1=%d or Userid2=%d'
+        sql3='Delete From Users.Online Where Userid=%d'
+        sql4='Select Groupid From Users.ChatGroup Where GroupOwner=%d'
+        sql5='Delete From Users.ChatgroupMem Where Groupid=%d or Memid=%d'
+        sql6='Delete From Users.Chatgroup Where GroupOwner=%d'
+        sql7='Delete From Users.User_Info Where Userid=%d'
+        cursor.execute(sql1,(username,userpwd))
+        row=cursor.fetchone()
+        if row:
+            print('userid: %d'%row[0])
             try:
-                cursor.execute('DELETE FROM Users.User_Info Where Username=%s \
-                            and UserPassWord=%s',(username, userpwd))
+                cursor.execute(sql2,(row[0],row[0]))
+                cursor.execute(sql3,row[0])  
+                cursor.execute(sql4,row[0])               
+                results=cursor.fetchall()
+                for row1 in results:
+                    print('group id: %d'%row1[0])
+                    cursor.execute(sql5,(row1[0],row[0]))
+                    cursor.execute(sql6,row1[0])
+                cursor.execute(sql7,row[0])
                 conn.commit()
             except:
                 conn.rollback()
                 conn.close()
-                return -1
-            cursor.close()
+                return -2
             conn.close()
             return 0
+        else:   #用户不存在
+            return -1
+        
         
 
 # 在线用户的添加和移除
@@ -219,7 +237,7 @@ class UserFriends:
             
 # 创建群聊
 # 加入群聊
-groupid=1
+#groupid=1
 class ChatGroup:
     def __init__(self,username):
         self.username=username
@@ -237,23 +255,24 @@ class ChatGroup:
     def CreateGroup(self,groupname=''):
         #user create a new group
         #return :0 成功，-1：username用户不存在,-2:groupname 这个组已存在
-        global groupid
+        # global groupid
         conn=pymssql.connect(host= hostip,port=portnum,database=DB)
         cursor=conn.cursor()
-        sql2='Insert Into Users.Chatgroup(Groupid,Groupname,GroupOwner) Values(%d,%s,%d)'
+        sql2='Insert Into Users.Chatgroup(Groupname,GroupOwner) Values(%s,%d)'
         if self.userid!=-1:
             tmp=self.OpenGroup(groupname)
             if tmp!=-2: #这个组已经存在了
                 conn.close()
                 return -2
             try:
-                cursor.execute(sql2,(groupid,groupname,self.userid))
+                cursor.execute(sql2,(groupname,self.userid))
                 conn.commit()
-                self.groupid=groupid    #保存
-                self.groupOwner=self.userid
                 self.groupname=groupname
-                groupid=groupid+1
-                self.addGroupMem(self.username)  #把群主加入群
+                self.groupOwner=self.userid
+                cursor.execute('Select Groupid From Users.Chatgroup Where Groupname=%s and GroupOwner=%d',(groupname,self.userid))
+                row=cursor.fetchone()
+                self.groupid=row[0]
+                tmp=self.addGroupMem(self.username)  #把群主加入群
             except:
                 conn.rollback()
                 conn.close()
@@ -394,5 +413,64 @@ class ChatGroup:
             GroupMemList.append(row[0])
         conn.close()
 
-
 # 消息
+class GroupMessages:
+    def __init__(self,username,groupname):
+        self.group=ChatGroup(username)
+        state=self.group.OpenGroup(groupname)
+        
+    def addMessage(self,promulgator,message):
+        #参数：promulgator:发布消息的用户，message：str消息
+        conn=pymssql.connect(host= hostip,port=portnum,database=DB)
+        cursor=conn.cursor()
+        sql1='Select Userid From Users.User_Info Where Username=%s'
+        sql2="Insert Users.Messages(From_uid,To_gid,Body,Date_commit) values(%d,%d,%s,GETDATE())"
+        cursor.execute(sql1,promulgator)
+        row=cursor.fetchone()
+        if row:
+            from_uid=row[0]
+        else:
+            conn.close()
+            return -1
+        try:
+           
+            cursor.execute(sql2,(from_uid,self.group.groupid,message))
+            conn.commit()
+        except:
+            conn.rollback()
+            conn.close()
+            return -2
+        conn.close()
+        return 0
+    def ListMessage(self,messageDict):
+        # 参数：传入一个字典，
+        # 返回 键值对：messageid1:message1，例如：dict={1:'hello'}
+        conn=pymssql.connect(host= hostip,port=portnum,database=DB)
+        cursor=conn.cursor()
+        sql='Select Messageid,Body From Users.Messages Where To_gid=%d'
+        cursor.execute(sql,self.group.groupid)
+        results=cursor.fetchall()
+        for row in results:
+            messageDict[row[0]]=row[1]
+        conn.close()
+
+    def deleteMessage(self,deleteList):
+        # 参数：删除列表，里面是messageid,可以通过ListMessage函数得到
+        conn=pymssql.connect(host= hostip,port=portnum,database=DB)
+        cursor=conn.cursor()
+        sql='Delete From Users.Messages Where Messageid=%d'
+        try:
+            for x in deleteList:
+                cursor.execute(sql,x)
+            conn.commit()
+        except:
+            conn.rollback()
+            conn.close()
+            return -1
+        conn.close()
+        return 0
+        
+
+
+
+
