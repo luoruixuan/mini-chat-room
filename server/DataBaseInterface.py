@@ -42,13 +42,15 @@ class UserOperations:
             return -1
         conn =pymssql.connect(host= hostip,port=portnum,database=DB)
         cursor=conn.cursor()    #游标
-        sql='INSERT Users.User_Info(Userid,Username,UserPassword) Values(%d,%s,%s)'
+        sql='INSERT INTO Users.User_Info(Userid,Username,UserPassword) Values(%d,%s,%s)'
         try:
             cursor.execute(sql,(usercount, username, userpwd))
             conn.commit()
             usercount=usercount+1
         except:
             conn.rollback()
+            conn.close()
+            return -1
         conn.close()
         return 0
         
@@ -61,11 +63,13 @@ class UserOperations:
             conn =pymssql.connect(host= hostip,port=portnum,database=DB)
             cursor=conn.cursor()
             try:
-                cursor.execute('DELETE FROM Users.User_Info as U Where U.Username=%s \
-                            and U.UserPassWord=%s',(username, userpwd))
+                cursor.execute('DELETE FROM Users.User_Info Where Username=%s \
+                            and UserPassWord=%s',(username, userpwd))
                 conn.commit()
             except:
                 conn.rollback()
+                conn.close()
+                return -1
             cursor.close()
             conn.close()
             return 0
@@ -91,8 +95,9 @@ class UserOnline:
                 return state
         conn =pymssql.connect(host= hostip,port=portnum,database=DB)
         cursor=conn.cursor()    #游标
-        cursor.execute('SELECT * FROM Users.Online WHERE Userid=%d', userid)
-        row=cursor.fetchone()
+        sql="SELECT Userid FROM Users.Online as U WHERE U.Userid=%d"
+        cursor.execute(sql, userid)
+        row = cursor.fetchone()
         if row:
             state=0 #在线
         else:
@@ -101,8 +106,9 @@ class UserOnline:
         conn.close()
         return state
 
-    def add(self,username='',userid=-1,IP_addr=''):
+    def add(self,username='',userid=-1):
         '''
+        #,IP_addr=''
         userid:添加时如果已知userid可以直接用这个
         username: 不知道userid可以用用户名查找，然后再添加
         return :0:正常， -1：无此用户
@@ -115,12 +121,14 @@ class UserOnline:
                 return state
         conn =pymssql.connect(host= hostip,port=portnum,database=DB)
         cursor=conn.cursor()    #游标
-        sql='INSERT Users.Online(Userid,IP_addr) Values(%d,%s)'
         try:
-            cursor.execute(sql,(userid,IP_addr))
+            sql='Insert Users.Online(userid) values(%d)'
+            cursor.execute(sql,(userid))
             conn.commit()
         except:
             conn.rollback()
+            conn.close()
+            return -2
         conn.close()
         return 0
         
@@ -143,6 +151,8 @@ class UserOnline:
             conn.commit()
         except:
             conn.rollback()
+            conn.close()
+            return -1
         cursor.close()
         conn.close()
         return 0
@@ -163,7 +173,7 @@ class UserFriends:
             return state
         conn =pymssql.connect(host= hostip,port=portnum,database=DB)
         cursor=conn.cursor()
-        sql='INSERT Users.Friends(Userid1,Userid2) Values(%d,%d)'
+        sql='INSERT INTO Users.Friends(Userid1,Userid2) Values(%d,%d)'
         try:
             cursor.execute(sql,(uid1,uid2))
             conn.commit()
@@ -200,7 +210,7 @@ class UserFriends:
         cursor=conn.cursor()
         sql='Select distinct Username \
             from Users.User_Info T1,(Select * From Users.Friends Where Userid1=%d or Userid2=%d)T2\
-            Where T1.Userid==T2.Userid1 or T1.Userid==T2.Userid2'
+            Where T1.Userid=T2.Userid1 or T1.Userid=T2.Userid2'
         cursor.execute(sql,(uid1,uid1))
         results=cursor.fetchall()
         for row in results:
@@ -213,31 +223,41 @@ groupid=1
 class ChatGroup:
     def __init__(self,username):
         self.username=username
+        sql1='Select Userid From Users.User_Info Where Username=%s'
+        conn=pymssql.connect(host= hostip,port=portnum,database=DB)
+        cursor=conn.cursor()
+        cursor.execute(sql1,self.username)
+        row=cursor.fetchone()
+        if row:
+            self.userid=row[0]
+        else:
+            self.userid=-1
+        conn.close()
+
     def CreateGroup(self,groupname=''):
         #user create a new group
         #return :0 成功，-1：username用户不存在,-2:groupname 这个组已存在
         global groupid
         conn=pymssql.connect(host= hostip,port=portnum,database=DB)
         cursor=conn.cursor()
-        sql1='Select Userid From Users.User_Info Where Username=%s'
-        sql2='Insert Users.Chatgroup(Groupid,Groupname,GroupOwner) Values(%d,%s,%d)'
-        cursor.execute(sql1,self.username)
-        row=cursor.fetchone()
-        if row:
+        sql2='Insert Into Users.Chatgroup(Groupid,Groupname,GroupOwner) Values(%d,%s,%d)'
+        if self.userid!=-1:
             tmp=self.OpenGroup(groupname)
             if tmp!=-2: #这个组已经存在了
                 conn.close()
                 return -2
             try:
-                cursor.execute(sql2,(groupid,groupname,row[0]))
+                cursor.execute(sql2,(groupid,groupname,self.userid))
                 conn.commit()
                 self.groupid=groupid    #保存
-                self.groupOwner=row[0]
+                self.groupOwner=self.userid
                 self.groupname=groupname
                 groupid=groupid+1
                 self.addGroupMem(self.username)  #把群主加入群
             except:
                 conn.rollback()
+                conn.close()
+                return -2
 
             conn.close()
             return 0
@@ -249,15 +269,12 @@ class ChatGroup:
         #返回值：0正常，-1：不存在此用户username，-2：不存在这个组有成员username
         conn=pymssql.connect(host= hostip,port=portnum,database=DB)
         cursor=conn.cursor()
-        sql1='Select Userid From Users.User_Info Where Username=%s'
         sql2='Select G.Groupid, GroupOwner \
                 From Users.Chatgroup as G inner join Users.ChatgroupMem as GM \
-                    on G.Grouid=GM.Groupid \
+                    on G.Groupid=GM.Groupid \
                 Where G.Groupname=%s and GM.Memid=%d '
-        cursor.execute(sql1,self.username)
-        row=cursor.fetchone()
-        if row:
-            cursor.execute(sql2,(groupname,row[0]))
+        if self.userid!=-1:
+            cursor.execute(sql2,(groupname,self.userid))
             result=cursor.fetchone()
             if result:
                 self.groupid=result[0]
@@ -277,7 +294,7 @@ class ChatGroup:
         cursor=conn.cursor()
         sql1='Select Userid From Users.User_Info Where Username=%s'
         sql2='Select Memid From Users.ChatgroupMem Where Groupid=%d and Memid=%d'
-        sql3='Insert Users.ChatgroupMem(Memid,Groupid) Values(%d,%d)'
+        sql3='Insert Into Users.ChatgroupMem(Memid,Groupid) Values(%d,%d)'
         cursor.execute(sql1,Memname)
         row=cursor.fetchone()   #Memid
         if row:
@@ -341,7 +358,7 @@ class ChatGroup:
 
         else:   #无权限
             return -1
-    def quertChatGroupList(self,ChatGroupList):
+    def queryChatGroupList(self,ChatGroupList):
         #参数：传入一个List
         #返回值：0正常，-1：此用户不存在
         conn=pymssql.connect(host= hostip,port=portnum,database=DB)
@@ -349,7 +366,7 @@ class ChatGroup:
         sql1='Select * From Users.User_Info Where Username=%s'
         sql2='Select Groupname \
                 From Users.Chatgroup as G inner join Users.ChatgroupMem as GM \
-                    on G.Grouid=GM.Groupid \
+                    on G.Groupid=GM.Groupid \
                 Where GM.Memid=%d '
         cursor.execute(sql1,self.username)
         row =cursor.fetchone()
