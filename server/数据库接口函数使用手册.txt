@@ -81,17 +81,22 @@ class ChatGroup:
     def addGroupMem(self,Memname):
         参数：邀请加入的成员名
         功能：用户username邀请Memname加入群聊
-        注意：这个函数要和OpenGroup配合使用，打开群聊后才能邀请加入
+        注意：这个函数要和OpenGroup配合使用，打开群聊后才能邀请加入，不过通常创建一个群聊后是打开的
         返回值：0正常，-1：不存在此用户Memname, -2:群聊已存在此成员
     def removeMem(self,Memname):
         参数：要移出的成员名
         功能：如果用户username是群主且Memname是他自己的话相当于解散群
              如果用户username是群主且Memname是其它成员，则是群主踢出成员Memname
              如果用户username不是群主且Memname是他自己则相当于用户username退出群聊
-	注意：这个函数要和OpenGroup配合使用，打开群聊后才能邀请加入
+	    注意：这个函数要和OpenGroup配合使用，
         返回值：0：成功， -1：失败
-    def quertChatGroupList(self,ChatGroupList):
+    def queryChatGroupList(self,ChatGroupList):
         参数：传入一个List
         功能：列出用户username的所有群聊，把群名放入ChatGroupList
         返回值：0正常，-1：此用户不存在
+    def def queryChatGroupMem(self,GroupMemList):
+        参数：传入一个List
+        功能：列出当前打开的群聊的所有成员
+        注意：这个函数要和OpenGroup配合使用，不过创建一个群聊后是打开状态的
+        返回值：成员列表GroupMemList
 
