@@ -102,7 +102,7 @@ Insert Administrator.Mem_Info(Memid, Memname, MemPassword)
 Insert Administrator.Mem_Info(Memid, Memname, MemPassword)
 	values(1,'wy','123456');
 Insert Administrator.Mem_Info(Memid, Memname, MemPassword)
-	values(2,'qwh','123456');
+	values(2,'qwt','123456');
 Insert Administrator.Mem_Info(Memid, Memname, MemPassword)
 	values(3,'ly','123456');
 Set IDENTITY_INSERT Administrator.Mem_Info OFF
@@ -113,7 +113,7 @@ Insert Users.User_Info(Userid,Username,UserPassword)
 Insert Users.User_Info(Userid,Username,UserPassword)
 	values(1,'wy','123456');
 Insert Users.User_Info(Userid,Username,UserPassword)
-	values(2,'qwh','123456');
+	values(2,'qwt','123456');
 Insert Users.User_Info(Userid,Username,UserPassword)
 	values(3,N'ly','123456');
 Set IDENTITY_INSERT Users.User_Info OFF
