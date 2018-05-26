@@ -86,8 +86,8 @@ Create Table Users.Messages
 	To_uid INT NOT NULL,
 	Body NVARCHAR(1000) NOT NULL,
 	Date_commit DATETIME NOT NULL,
-	Foreign Key (From_id) References Users.User_Info(Userid),
-	Foreign Key (To_id) References Users.User_Info(Userid)
+	Foreign Key (From_uid) References Users.User_Info(Userid),
+	Foreign Key (To_uid) References Users.User_Info(Userid)
 )
 ---------------------------------------------------------------------
 -- insert database's administrators
