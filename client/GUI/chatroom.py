@@ -229,63 +229,81 @@ class Room:
         room_name = info['group_name']
         tl = Toplevel(self.tk)
         tl.title('Chat room %s'%room_name)
-        width, height = 500, 400
+        width, height = 1000, 800
         tl.minsize(width, height)
-        tl.maxsize(width, height)
+        #tl.maxsize(width, height)
         self.tl = tl
         # 房间信息、房主设置
         row = Frame(tl)
-        row.pack()
-        Label(row, text='User name: '+self.usr_name, font=self.ft).pack(side=LEFT, padx=15)
-        Label(row, text='Room name: '+room_name, font=self.ft).pack(side=LEFT, padx=15)
+        #row.pack()
+        Label(row, text='User name: '+self.usr_name, font=self.ft).place(relx=0.1, rely=0., relwidth=0.2, relheight=1.)
+        Label(row, text='Room name: '+room_name, font=self.ft).place(relx=0.4, rely=0., relwidth=0.2, relheight=1.)
         setting_act = lambda:self.chat_room_setting(info)
         if self.usr_name != info['creator']:
             setting_act = lambda:messagebox.showerror('Fail', 'You are not the creator of the room.')
-        Button(row, text='Setting', font=self.ft, command=setting_act).pack(side=LEFT, padx=15)
+        Button(row, text='Setting', font=self.ft, command=setting_act).place(relx=0.7, rely=0., relwidth=0.2, relheight=1.)
+        row.place(relx=0., rely=0., relwidth=1., relheight=0.1)
 
         # 输入框
         row = Frame(tl)
-        row.pack(side=BOTTOM, pady=10)
         input_box = Entry(row, font=self.ft)
-        input_box.pack(side=LEFT, padx=15)
+        input_box.place(relx=0.03, rely=0., relwidth=0.6, relheight=0.95)
 
         but_sd = Button(row, text='send', font=self.ft, command=lambda:self.send_msg(room_name, input_box))
-        but_sd.pack(side=LEFT, padx=15)
+        but_sd.place(relx=0.64, rely=0.3, relwidth=0.1, relheight=0.6)
 
         but_cl = Button(row, text='clear', font=self.ft, command=lambda:self.clear_msg())
-        but_cl.pack(side=LEFT, padx=15)
+        but_cl.place(relx=0.76, rely=0.3, relwidth=0.1, relheight=0.6)
 
         but_sf = Button(row, text = 'File', font = self.ft, command=lambda:self.share_file(room_name))
-        but_sf.pack(side = LEFT, padx = 15)
+        but_sf.place(relx=0.88, rely=0.3, relwidth=0.1, relheight=0.6)
+        row.place(relx=0., rely=0.8, relwidth=1., relheight=0.2)
+        
 
-        # 消息框
-        row = Label(tl)
-        row.pack(expand='yes', padx=15)
-
+        # 文件列表
+        status, msg = self.UI.session.get_room_files(room_name)
+        if not status:
+            messagebox.showerror('Fail', msg)
+            return
+        #msg = {'files':['a','b','c','d','e','f','g']}
+        lst = msg['files']
+        f = Frame(tl)
+        t = Listbox(f, font=self.ft)
+        bar = Scrollbar(f)
+        bar.config(command=t.yview)
+        t.config(yscrollcommand=bar.set)
+        for i, fn in enumerate(lst):
+            t.insert(END, fn)
+        bar.place(relx=0.9, rely=0.01, width=20, relheight=.98)
+        t.place(relx=0.0, rely=0.01, relwidth=0.9, relheight=.98)
+        t.bind('<Double-Button-1>', lambda event:self.download_file())
+        self.file_listbox = t
+        f.place(relx=0.8, rely=0.1, relwidth=0.2, relheight=0.3)
+        
         # 成员
         f0 = Frame(tl)
-        t = Text(f0, font=self.ft, width=10)
+        t = Text(f0, font=self.ft)
         bar = Scrollbar(f0)
         bar.config(command=t.yview)
         t.config(yscrollcommand=bar.set)
-        bar.pack(side=RIGHT, fill=Y)
-        t.pack(side=RIGHT, anchor='nw')
+        bar.place(relx=0.9, rely=0.01, width=20, relheight=.98)
+        t.place(relx=0.0, rely=0.01, relwidth=0.9, relheight=.98)
         for m in info['members']:
             t.insert(END, m+'\n')
         t['state']='disabled'
         self.usr_box = t
-        f0.pack(side=RIGHT,padx=15)
+        f0.place(relx=0.8, rely=0.4, relwidth=0.2, relheight=0.4)
 
         # 历史消息
-
+        
         row = Frame(tl)
         t = Text(row, font=self.ft)
         bar = Scrollbar(row)
         bar.config(command=t.yview)
         t.config(yscrollcommand=bar.set)
-        bar.pack(side=RIGHT,fill=Y)
-        t.pack(expand='yes', anchor='nw')
-        row.pack(padx=15)
+        bar.place(relx=0.97, rely=0.01, width=20, relheight=.98)
+        t.place(relx=0.01, rely=0.01, relwidth=0.96, relheight=.98)
+        row.place(relx=0.0, rely=0.1, relwidth=0.8, relheight=0.7)
         t['state']='disabled'
         hist_box = t
         self.hist_box = hist_box
@@ -313,6 +331,12 @@ class Room:
         f.write(file_content)
         f.close()
         self.recv_msg('你收到了来自' + user_name + '的文件（%s）' % file_name+',存放在了%s下'%file_dir)
+
+    def download_file(self):
+        # TODO 文件下载
+        lb = self.file_listbox
+        fn = lb.get(lb.curselection())
+        print('Downloading %s:'%fn)
 
     def send_msg(self, room_name, box):
         msg = box.get()

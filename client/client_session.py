@@ -144,6 +144,13 @@ class ClientSession:
         status, msg = res['status'], res['msg']
         return status, res['info']
 
+    def get_room_files(self, group_name):
+        # TODO
+        lst = []
+        for i in range(20):
+            lst.append('%d.txt'%i)
+        return True, {'files':lst}
+
     def send_msg(self, group_name, msg):
         request = {'type':'group_message',
                    'msg':msg,
