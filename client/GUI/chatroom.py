@@ -19,6 +19,8 @@ class ChatroomUI:
 
         # 主界面
         tk.title('Main')
+        self.main_part = Room(self)
+        '''
         width, height = 500, 400
         tk.minsize(width, height)
         tk.maxsize(width, height)
@@ -47,6 +49,7 @@ class ChatroomUI:
 
         but_ccr = Button(tk, text='Create chat room', font=ft, command=lambda:self.CreateChatRoom())
         but_ccr.place(x=250, y=330)
+        '''
         tk.protocol('WM_DELETE_WINDOW', lambda:self.logout())
         self.friendlist = None
         self.chatrooms = None
@@ -64,20 +67,16 @@ class ChatroomUI:
         print('&')
         if js['type'] == 'person_speak':
             room_name = js['group_name']
-            if room_name in self.rooms:
-                self.rooms[room_name].recv_msg(js['usr_name']+': '+js['message'])
+            self.main_part.recv_msg(room_name, js['usr_name']+': '+js['message'])
         elif js['type'] == 'person_in':
             room_name = js['group_name']
-            if room_name in self.rooms:
-                self.rooms[room_name].person_in(js['usr_name'])
+            self.main_part.person_in(room_name, js['usr_name'])
         elif js['type'] == 'person_out':
             room_name = js['group_name']
-            if room_name in self.rooms:
-                self.rooms[room_name].person_out(js['usr_name'])
+            self.main_part.person_out(room_name, js['usr_name'])
         elif js['type'] == 'person_share_file':
             room_name = js['group_name']
-            if room_name in self.rooms:
-                self.rooms[room_name].get_file(js)
+            self.main_part.get_file(room_name, js)
 
     def logout(self):
         self.tk.destroy()
@@ -220,15 +219,16 @@ class ChatroomUI:
         self.rooms[room_name] = Room(self, info)
 
 class Room:
-    def __init__(self, UI, info):
+    def __init__(self, UI):
         self.UI = UI
         self.tk = UI.tk
         self.usr_name = UI.usr_name
-        self.info = info
         self.ft = UI.ft
-        room_name = info['group_name']
-        tl = Toplevel(self.tk)
-        tl.title('Chat room %s'%room_name)
+        room_name = 'Hall' #info['group_name']
+        self.room_name = room_name
+        self.all_rooms = {}
+        tl = self.tk #Toplevel(self.tk)
+        #tl.title('Chat room %s'%room_name)
         width, height = 1000, 800
         tl.minsize(width, height)
         #tl.maxsize(width, height)
@@ -237,19 +237,19 @@ class Room:
         row = Frame(tl)
         #row.pack()
         Label(row, text='User name: '+self.usr_name, font=self.ft).place(relx=0.1, rely=0., relwidth=0.2, relheight=1.)
-        Label(row, text='Room name: '+room_name, font=self.ft).place(relx=0.4, rely=0., relwidth=0.2, relheight=1.)
-        setting_act = lambda:self.chat_room_setting(info)
-        if self.usr_name != info['creator']:
-            setting_act = lambda:messagebox.showerror('Fail', 'You are not the creator of the room.')
+        self.RN = Label(row, text='Room name: '+room_name, font=self.ft)
+        self.RN.place(relx=0.4, rely=0., relwidth=0.2, relheight=1.)
+        setting_act = lambda:self.chat_room_setting()
         Button(row, text='Setting', font=self.ft, command=setting_act).place(relx=0.7, rely=0., relwidth=0.2, relheight=1.)
         row.place(relx=0., rely=0., relwidth=1., relheight=0.1)
 
         # 输入框
         row = Frame(tl)
-        input_box = Entry(row, font=self.ft)
-        input_box.place(relx=0.03, rely=0., relwidth=0.6, relheight=0.95)
+        input_box = Text(row, font=self.ft)
+        input_box.place(relx=0., rely=0., relwidth=0.62, relheight=0.95)
+        self.input_box = input_box
 
-        but_sd = Button(row, text='send', font=self.ft, command=lambda:self.send_msg(room_name, input_box))
+        but_sd = Button(row, text='send', font=self.ft, command=lambda:self.send_msg())
         but_sd.place(relx=0.64, rely=0.3, relwidth=0.1, relheight=0.6)
 
         but_cl = Button(row, text='clear', font=self.ft, command=lambda:self.clear_msg())
@@ -257,23 +257,43 @@ class Room:
 
         but_sf = Button(row, text = 'File', font = self.ft, command=lambda:self.share_file(room_name))
         but_sf.place(relx=0.88, rely=0.3, relwidth=0.1, relheight=0.6)
-        row.place(relx=0., rely=0.8, relwidth=1., relheight=0.2)
+        row.place(relx=0.3, rely=0.8, relwidth=0.7, relheight=0.2)
+
+        # 群列表
+        f = Frame(tl)
+        room_list = Listbox(f, font=self.ft)
+        self.room_list = room_list
+        bar = Scrollbar(f)
+        bar.config(command=room_list.yview)
+        room_list.config(yscrollcommand=bar.set)
+        bar.place(relx=0.9, rely=0.01, width=20, relheight=.98)
+        room_list.place(relx=0.0, rely=0.01, relwidth=0.9, relheight=.98)
+        room_list.bind('<Double-Button-1>', lambda event:self.click_room())
+        f.place(relx = 0.03, rely= 0.1, relwidth=0.27, relheight=0.45)
+        
         
 
+        # 好友列表
+        f = Frame(tl)
+        friend_list = Listbox(f, font=self.ft)
+        self.friend_list = friend_list
+        bar = Scrollbar(f)
+        bar.config(command=friend_list.yview)
+        friend_list.config(yscrollcommand=bar.set)
+        bar.place(relx=0.9, rely=0.01, width=20, relheight=.98)
+        friend_list.place(relx=0.0, rely=0.01, relwidth=0.9, relheight=.98)
+        friend_list.bind('<Double-Button-1>', lambda event:self.click_friend())
+        f.place(relx = 0.03, rely= 0.55, relwidth=0.27, relheight=0.45)
+
+        # 刷新群列表和好友列表
+        self.flush_list()
+
         # 文件列表
-        status, msg = self.UI.session.get_room_files(room_name)
-        if not status:
-            messagebox.showerror('Fail', msg)
-            return
-        #msg = {'files':['a','b','c','d','e','f','g']}
-        lst = msg['files']
         f = Frame(tl)
         t = Listbox(f, font=self.ft)
         bar = Scrollbar(f)
         bar.config(command=t.yview)
         t.config(yscrollcommand=bar.set)
-        for i, fn in enumerate(lst):
-            t.insert(END, fn)
         bar.place(relx=0.9, rely=0.01, width=20, relheight=.98)
         t.place(relx=0.0, rely=0.01, relwidth=0.9, relheight=.98)
         t.bind('<Double-Button-1>', lambda event:self.download_file())
@@ -288,8 +308,6 @@ class Room:
         t.config(yscrollcommand=bar.set)
         bar.place(relx=0.9, rely=0.01, width=20, relheight=.98)
         t.place(relx=0.0, rely=0.01, relwidth=0.9, relheight=.98)
-        for m in info['members']:
-            t.insert(END, m+'\n')
         t['state']='disabled'
         self.usr_box = t
         f0.place(relx=0.8, rely=0.4, relwidth=0.2, relheight=0.4)
@@ -303,12 +321,94 @@ class Room:
         t.config(yscrollcommand=bar.set)
         bar.place(relx=0.97, rely=0.01, width=20, relheight=.98)
         t.place(relx=0.01, rely=0.01, relwidth=0.96, relheight=.98)
-        row.place(relx=0.0, rely=0.1, relwidth=0.8, relheight=0.7)
+        row.place(relx=0.3, rely=0.1, relwidth=0.5, relheight=0.7)
         t['state']='disabled'
         hist_box = t
         self.hist_box = hist_box
 
-        tl.protocol('WM_DELETE_WINDOW', lambda:self.leave(room_name))
+        #tl.protocol('WM_DELETE_WINDOW', lambda:self.leave(room_name))
+
+    def click_room(self):
+        lb = self.room_list
+        try:
+            rn = lb.get(lb.curselection())
+        except:
+            return
+        self.UI.session.enter_chat_room_request(self.usr_name, rn, '')
+        self.flush_room(rn)
+
+    def click_friend(self):
+        lb = self.friend_list
+        try:
+            fn = lb.get(lb.curselection())
+        except:
+            return
+        # TODO 好友是否视为二人群？
+        self.flush_room(fn)
+
+    def chat_room_setting(self):
+        if self.room_name == 'Hall':
+            messagebox.showerror('Fail', 'Please enter a room first.')
+            return
+        info = self.all_rooms[self.room_name]
+        if self.usr_name != info['creator']:
+            messagebox.showerror('Fail', 'You are not the creator of the room.')
+            return
+        # TODO room setting part
+
+    def clear_input_box(self):
+        self.input_box.delete(0.0,END)
+
+    def flush_list(self):
+        # TODO 获取用户的群列表
+        lst = ['1', '2', '3', '4']
+        for n in lst:
+            self.room_list.insert(END, n)
+
+        # TODO 获取用户好友列表
+        lst = ['lrx', 'wy', 'ly', 'qwt']
+        for n in lst:
+            self.friend_list.insert(END, n)
+
+    # 进入房间时初始化
+    def flush_room(self, room_name):
+        if not room_name in self.all_rooms:
+            status, info = self.UI.session.get_room_info(self.usr_name, room_name)
+            if not status:
+                messagebox.showerror('Fail', info)
+                return
+            self.all_rooms[room_name] = info
+            # debug
+            info['files']=['a.txt', 'b.jpg']
+            info['history']='123'
+        self.room_name = room_name
+        self.RN.configure(text='Room name: '+room_name)
+        info = self.all_rooms[room_name]
+        self.flush_file(info)
+        self.flush_member(info)
+        self.flush_hist(info)
+        self.clear_input_box()
+
+    # 刷新文件列表
+    def flush_file(self, info):
+        t = self.file_listbox
+        t.delete(0, END)
+        lst = info['files']
+        for i, fn in enumerate(lst):
+            t.insert(END, fn)
+
+    # 刷新成员列表
+    def flush_member(self, info):
+        self.usr_box['state']='normal'
+        self.usr_box.delete(0.0, END)
+        for m in info['members']:
+            self.usr_box.insert(END, m+'\n')
+        self.usr_box['state']='disabled'
+
+    # 刷新历史消息
+    def flush_hist(self, info):
+        self.clear_msg()
+        self.recv_msg(self.room_name, info['history'])
 
     def share_file(self, room_name):
         file_name = filedialog.askopenfilename()
@@ -335,44 +435,56 @@ class Room:
     def download_file(self):
         # TODO 文件下载
         lb = self.file_listbox
-        fn = lb.get(lb.curselection())
+        try:
+            fn = lb.get(lb.curselection())
+        except:
+            return
         print('Downloading %s:'%fn)
 
-    def send_msg(self, room_name, box):
-        msg = box.get()
-        self.recv_msg(self.usr_name+': '+msg)
+    def send_msg(self):
+        room_name = self.room_name
+        box = self.input_box
+        if room_name == 'Hall':
+            messagebox.showerror('Fail', 'Please enter a room first.')
+            return
+        msg = box.get(0.0, END)[:-1]
+        self.recv_msg(room_name, self.usr_name+': '+msg)
         status, msg = self.UI.session.send_msg(room_name, msg)
         if not status:
             messagebox.showerror('Fail', msg)
             return
-        box.delete(0, END)
+        box.delete(0.0, END)
     def clear_msg(self):
         self.hist_box['state']='normal'
         self.hist_box.delete(0.0, END)
         self.hist_box['state']='disabled'
 
-    def recv_msg(self, msg):
-        self.hist_box['state']='normal'
-        self.hist_box.insert(END, str(msg)+'\n')
-        self.hist_box['state']='disabled'
+    def recv_msg(self, room_name, msg):
+        info = self.all_rooms[room_name]
+        info['history'] = info['history']+str(msg)+'\n'
+        if room_name == self.room_name:
+            self.hist_box['state']='normal'
+            self.hist_box.insert(END, str(msg)+'\n')
+            self.hist_box['state']='disabled'
 
-    def person_in(self, name):
-        self.usr_box['state']='normal'
-        self.usr_box.insert(END, name+'\n')
-        self.usr_box['state']='disabled'
-    def person_out(self, name):
-        self.usr_box['state']='normal'
-        all_names = self.usr_box.get(0.0, END).split('\n')
-        self.usr_box.delete(0.0, END)
-        for i, n in enumerate(all_names):
+    def person_in(self, room_name, name):
+        info = self.all_rooms[room_name]
+        info['members'].append(name)
+        if room_name == self.room_name:
+            self.usr_box['state']='normal'
+            self.usr_box.insert(END, name+'\n')
+            self.usr_box['state']='disabled'
+    def person_out(self, room_name, name):
+        info = self.all_rooms[room_name]
+        for i, n in enumerate(info['members']):
             if n == name:
                 break
-        if i < len(all_names):
-            all_names.pop(i)
+        if i < len(info['members']):
+            info['members'].pop(i)
         else:
-            print('No name %s !\n'%name)
-        self.usr_box.insert(END, '\n'.join(all_names))
-        self.usr_box['state']='disabled'
+            print('No name %s!\n'%name)
+        if room_name == self.room_name:
+            self.flush_member(info)
 
     def leave(self, room_name):
         self.tl.destroy()
