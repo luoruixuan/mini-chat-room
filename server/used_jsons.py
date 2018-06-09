@@ -1,6 +1,18 @@
 # -*- coding: utf-8 -*-
 
 # 命令json(dict)
+
+# 传输RSA公钥
+{'type': 'init',
+ 'msg': 'RSApubKey',
+ 'Key': ''
+}
+# 接收AES密钥
+{'type': 'init',
+ 'msg': 'AESKey',
+ 'Key': ''
+}
+
 # 登录
 {'type': 'command',
  'msg': 'login',
