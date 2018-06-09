@@ -231,17 +231,24 @@ class Room:
         #tl.title('Chat room %s'%room_name)
         width, height = 1000, 800
         tl.minsize(width, height)
-        #tl.maxsize(width, height)
         self.tl = tl
         # 房间信息、房主设置
         row = Frame(tl)
-        #row.pack()
-        Label(row, text='User name: '+self.usr_name, font=self.ft).place(relx=0.1, rely=0., relwidth=0.2, relheight=1.)
-        self.RN = Label(row, text='Room name: '+room_name, font=self.ft)
-        self.RN.place(relx=0.4, rely=0., relwidth=0.2, relheight=1.)
+        Label(row, text='用户名: '+self.usr_name, font=self.ft).place(relx=0.01, rely=0., relwidth=0.13, relheight=1.)
+        self.RN = Label(row, text='房间名: '+room_name, font=self.ft)
+        self.RN.place(relx=0.15, rely=0., relwidth=0.13, relheight=1.)
         setting_act = lambda:self.chat_room_setting()
-        Button(row, text='Setting', font=self.ft, command=setting_act).place(relx=0.7, rely=0., relwidth=0.2, relheight=1.)
+        Button(row, text='房间设置', font=self.ft, command=setting_act).place(relx=0.29, rely=0., relwidth=0.13, relheight=1.)
+        setting_act = lambda:self.personal_setting()
+        Button(row, text='个人设置', font=self.ft, command=setting_act).place(relx=0.43, rely=0., relwidth=0.13, relheight=1.)
+        setting_act = lambda:self.add_friend()
+        Button(row, text='好友添加', font=self.ft, command=setting_act).place(relx=0.57, rely=0., relwidth=0.13, relheight=1.)
+        setting_act = lambda:self.create_chat_room()
+        Button(row, text='创建房间', font=self.ft, command=setting_act).place(relx=0.71, rely=0., relwidth=0.13, relheight=1.)
+        setting_act = lambda:self.verification_message()
+        Button(row, text='验证消息', font=self.ft, command=setting_act).place(relx=0.85, rely=0., relwidth=0.13, relheight=1.)
         row.place(relx=0., rely=0., relwidth=1., relheight=0.1)
+        
 
         # 输入框
         row = Frame(tl)
@@ -249,13 +256,13 @@ class Room:
         input_box.place(relx=0., rely=0., relwidth=0.62, relheight=0.95)
         self.input_box = input_box
 
-        but_sd = Button(row, text='send', font=self.ft, command=lambda:self.send_msg())
+        but_sd = Button(row, text='发送', font=self.ft, command=lambda:self.send_msg())
         but_sd.place(relx=0.64, rely=0.3, relwidth=0.1, relheight=0.6)
 
-        but_cl = Button(row, text='clear', font=self.ft, command=lambda:self.clear_msg())
+        but_cl = Button(row, text='清空历史', font=self.ft, command=lambda:self.clear_msg())
         but_cl.place(relx=0.76, rely=0.3, relwidth=0.1, relheight=0.6)
 
-        but_sf = Button(row, text = 'File', font = self.ft, command=lambda:self.share_file(room_name))
+        but_sf = Button(row, text = '文件', font = self.ft, command=lambda:self.share_file(room_name))
         but_sf.place(relx=0.88, rely=0.3, relwidth=0.1, relheight=0.6)
         row.place(relx=0.3, rely=0.8, relwidth=0.7, relheight=0.2)
 
@@ -346,6 +353,132 @@ class Room:
         # TODO 好友是否视为二人群？
         self.flush_room(fn)
 
+    def personal_setting(self):
+        tl = Toplevel(self.tk)
+        tl.title('setting')
+        width, height = 500, 300
+        tl.minsize(width, height)
+        tl.maxsize(width, height)
+        tl.geometry('%dx%d+%d+%d' % (width,height,(tl.winfo_screenwidth() - width ) / 2, (tl.winfo_screenheight() - height) / 2))
+        Label(tl, text='old password: ', font=self.ft).place(x=40, y=50)
+        Label(tl, text='new password: ', font=self.ft).place(x=40, y=100)
+        Label(tl, text='confirm password: ', font=self.ft).place(x=40, y=150)
+        o = Entry(tl, show='*', font=self.ft)
+        o.place(x=220, y=50)
+        n = Entry(tl, show='*', font=self.ft)
+        n.place(x=220, y=100)
+        c = Entry(tl, show='*', font=self.ft)
+        c.place(x=220, y=150)
+        Button(tl, text='change password', font=self.ft, command=lambda:self.change_password(o, n, c, tl)).place(x=150, y=200)
+    def change_password(self, o, n, c, tl):
+        op = o.get()
+        np = n.get()
+        cp = c.get()
+        if np!=cp:
+            messagebox.showerror('Fail', 'New password does not match.')
+            return
+        # TODO 修改密码操作
+        print(op, np, cp)
+        tl.destroy()
+
+    def add_friend(self):
+        tl = Toplevel(self.tk)
+        tl.title('add friend')
+        width, height = 500, 200
+        tl.minsize(width, height)
+        tl.maxsize(width, height)
+        tl.geometry('%dx%d+%d+%d' % (width,height,(tl.winfo_screenwidth() - width ) / 2, (tl.winfo_screenheight() - height) / 2))
+        Label(tl, text='friend name: ', font=self.ft).place(x=40, y=50)
+        Label(tl, text='verification: ', font=self.ft).place(x=40, y=100)
+        fn = Entry(tl, font=self.ft)
+        fn.place(x=220, y=50)
+        ver = Entry(tl, font=self.ft)
+        ver.place(x=220, y=100)
+        Button(tl, text='send', font=self.ft, command=lambda:self.add_friend_request(fn, ver, tl)).place(x=150, y=150)
+    def add_friend_request(self, fn, ver, tl):
+        friend_name = fn.get()
+        verification = ver.get()
+        # TODO 加好友操作
+        print(friend_name+': '+verification)
+        tl.destroy()
+        
+    def create_chat_room(self):
+        tl = Toplevel(self.tk)
+        tl.title('Create chat room')
+        width, height = 500, 200
+        tl.minsize(width, height)
+        tl.maxsize(width, height)
+        tl.geometry('%dx%d+%d+%d' % (width,height,(tl.winfo_screenwidth() - width ) / 2, (tl.winfo_screenheight() - height) / 2))
+        Label(tl, text='room name: ', font=self.ft).place(x=50, y=50)
+        #Label(tl, text='Password: ', font=self.ft).place(x=50, y=190)
+        RN = Entry(tl, font=self.ft)
+        RN.place(x=200, y=50)
+        #PW = Entry(tl, font=self.ft)
+        #PW.place(x=200, y=190)
+        but_sd = Button(tl, text='create', font=self.ft, command=lambda:self.create_chat_room_request(RN, tl))
+        but_sd.place(x=170, y=130)
+    def create_chat_room_request(self, RN, tl):
+        room_name = RN.get()
+        status, msg = self.UI.session.create_chat_room_request(self.usr_name, room_name, password='')
+        if status:
+            messagebox.showinfo('Succeed', msg)
+            tl.destroy()
+            #self.flush_list()
+            self.room_list.insert(END, room_name)
+            tl.destroy()
+        else:
+            messagebox.showerror('Fail', msg)
+        
+    def verification_message(self):
+        f = Toplevel(self.tk)
+        f.title('verification')
+        width, height = 500, 400
+        f.minsize(width, height)
+        f.maxsize(width, height)
+        f.geometry('%dx%d+%d+%d' % (width,height,(f.winfo_screenwidth() - width ) / 2, (f.winfo_screenheight() - height) / 2))
+        lb = Listbox(f, font=self.ft)
+        # TODO 获取验证消息
+        lst = ['a: 123', 'b: 456']
+        for n in lst:
+            lb.insert(END, n)
+        bar = Scrollbar(f)
+        bar.config(command=lb.yview)
+        lb.config(yscrollcommand=bar.set)
+        bar.place(relx=0.95, rely=0.01, width=20, relheight=.98)
+        lb.place(relx=0.0, rely=0.01, relwidth=0.95, relheight=.98)
+        lb.bind('<Double-Button-1>', lambda event:self.click_ver(lb, f))
+        #f.place(relx = 0.03, rely= 0.55, relwidth=0.27, relheight=0.45)
+    def click_ver(self, lb, tl):
+        try:
+            pl = lb.curselection()
+            s = lb.get(pl)
+        except:
+            return
+        friend_name = s.split(': ')[0]
+        t0 = tl
+        tl = Toplevel(t0)
+        tl.title('verification')
+        width, height = 300, 230
+        tl.minsize(width, height)
+        tl.maxsize(width, height)
+        tl.geometry('%dx%d+%d+%d' % (width,height,(tl.winfo_screenwidth() - width ) / 2, (tl.winfo_screenheight() - height) / 2))
+        Label(tl, text=s, font=self.ft).place(x=50, y=50, width=200, height=80)
+        Button(tl, text='accept', font=self.ft, command=lambda:self.acc_friend(friend_name, lb, pl, tl)).place(x=60, y=150)
+        Button(tl, text='reject', font=self.ft, command=lambda:self.reject_friend(friend_name, lb, pl, tl)).place(x=200, y=150)
+
+    # TODO 接受或拒绝添加好友
+    def acc_friend(self, name, lb, pl, tl):
+        print('Accpet: '+name)
+        tl.destroy()
+        lb.delete(pl, pl)
+        self.friend_list.insert(END, name)
+        
+    def reject_friend(self, name, lb, pl, tl):
+        print('Reject: '+name)
+        tl.destroy()
+        lb.delete(pl, pl)
+        
+
     def chat_room_setting(self):
         if self.room_name == 'Hall':
             messagebox.showerror('Fail', 'Please enter a room first.')
@@ -355,6 +488,68 @@ class Room:
             messagebox.showerror('Fail', 'You are not the creator of the room.')
             return
         # TODO room setting part
+        tl = Toplevel(self.tk)
+        tl.title('setting')
+        width, height = 500, 400
+        tl.minsize(width, height)
+        tl.maxsize(width, height)
+        tl.geometry('%dx%d+%d+%d' % (width,height,(tl.winfo_screenwidth() - width ) / 2, (tl.winfo_screenheight() - height) / 2))
+        # 加人
+        f = Frame(tl)
+        f.place(relx = 0., rely=0., relwidth=0.5, relheight=1.)
+        Label(f, text='invite', font=self.ft).place(relx=0.01, rely=0.01, relwidth=0.99, relheight=0.19)
+        lb = Listbox(f, font=self.ft)
+        info = self.all_rooms[self.room_name]
+        room_member = info['members']
+        lst = []
+        i = 0
+        while True:
+            fn = self.friend_list.get(i)
+            if fn == '':
+                break
+            if not fn in room_member:
+                lst.append(fn)
+            i+=1
+        for n in lst:
+            #if n == self.usr_name:
+            #    continue
+            lb.insert(END, n)
+        bar = Scrollbar(f)
+        bar.config(command=lb.yview)
+        lb.config(yscrollcommand=bar.set)
+        bar.place(relx=0.90, rely=0.21, width=20, relheight=.78)
+        lb.place(relx=0.0, rely=0.21, relwidth=0.9, relheight=.78)
+        lb0 = lb
+        lb.bind('<Double-Button-1>', lambda event:self.invite_friend(lb0, tl))
+        # 踢人
+        f = Frame(tl)
+        f.place(relx = 0.5, rely=0., relwidth=0.5, relheight=1.)
+        Label(f, text='remove', font=self.ft).place(relx=0.01, rely=0.01, relwidth=0.99, relheight=0.19)
+        lb = Listbox(f, font=self.ft)
+        for n in room_member:
+            lb.insert(END, n)
+        bar = Scrollbar(f)
+        bar.config(command=lb.yview)
+        lb.config(yscrollcommand=bar.set)
+        bar.place(relx=0.90, rely=0.21, width=20, relheight=.78)
+        lb.place(relx=0.0, rely=0.21, relwidth=0.9, relheight=.78)
+        lb.bind('<Double-Button-1>', lambda event:self.kick_person(lb, tl))
+    def invite_friend(self, lb, tl):
+        try:
+            pl = lb.curselection()
+            s = lb.get(pl)
+        except:
+            return
+        # TODO 邀请好友
+        print('invite: '+s)
+    def kick_person(self, lb, tl):
+        try:
+            pl = lb.curselection()
+            s = lb.get(pl)
+        except:
+            return
+        # TODO 踢人
+        print('kick: '+s)
 
     def clear_input_box(self):
         self.input_box.delete(0.0,END)
@@ -380,7 +575,7 @@ class Room:
             self.all_rooms[room_name] = info
             # debug
             info['files']=['a.txt', 'b.jpg']
-            info['history']='123'
+            info['history']='xxx: 123'
         self.room_name = room_name
         self.RN.configure(text='Room name: '+room_name)
         info = self.all_rooms[room_name]
