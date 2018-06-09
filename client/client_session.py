@@ -178,13 +178,13 @@ class ClientSession:
         res = self.send(request)
         status, msg = res['status'], res['msg']
         return status, res['info']
-
+    '''
     def get_room_files(self, group_name):
         # TODO
         lst = []
         for i in range(20):
             lst.append('%d.txt'%i)
-        return True, {'files':lst}
+        return True, {'files':lst}'''
 
     def send_msg(self, group_name, msg):
         request = {'type':'group_message',
@@ -202,6 +202,80 @@ class ClientSession:
         res = self.send(request)
         status, msg = res['status'], res['msg']
         return status, msg
+
+    def change_password_request(self, usr_name, old_pwd, new_pwd):
+        request = {'type': 'command',
+                   'msg': 'change_password',
+                   'usr_name': usr_name,
+                   'old_password': old_pwd,
+                   'new_password': new_pwd}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, msg
+
+    def add_friend_request(self, usr_name, friend_name, ver_msg):
+        request = {'type': 'command',
+                   'msg': 'add_friend',
+                   'usr_name': usr_name,
+                   'friend_name': friend_name,
+                   'verification_message': ver_msg}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, msg
+
+    def get_verification_message(self, usr_name):
+        request = {'type': 'command',
+                   'msg': 'get_verification_message',
+                   'usr_name': usr_name}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, res['info']
+
+    def add_friend_response(self, usr_name, friend_name, response):
+        request = {'type': 'command',
+                   'msg': 'add_friend_response',
+                   'usr_name': usr_name,
+                   'friend_name': friend_name,
+                   'accept': response}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, msg
+
+    def invite_friend(self, usr_name, friend_name, group_name):
+        request = {'type': 'command',
+                   'msg': 'invite_friend',
+                   'usr_name': usr_name,
+                   'friend_name': friend_name,
+                   'group_name': group_name}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, msg
+
+    def remove_person(self, usr_name, friend_name, group_name):
+        request = {'type': 'command',
+                   'msg': 'remove_person',
+                   'usr_name': usr_name,
+                   'friend_name': friend_name,
+                   'group_name': group_name}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, msg
+
+    def get_group_list(self, usr_name):
+        request = {'type': 'command',
+                   'msg': 'get_group_list',
+                   'usr_name': usr_name}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, res['info']
+
+    def get_friend_list(self, usr_name):
+        request = {'type': 'command',
+                   'msg': 'get_friend_list',
+                   'usr_name': usr_name}
+        res = self.send(request)
+        status, msg = res['status'], res['msg']
+        return status, res['info']
 
     def share_file(self, group_name, file_name, file_content):
         request = {
