@@ -3,7 +3,7 @@
 import asynchat
 from project_logger import logger
 from rooms import EndSession
-
+from secure_transmission import *
 
 class ChatSession(asynchat.async_chat):
     '''
@@ -16,6 +16,14 @@ class ChatSession(asynchat.async_chat):
         self.set_terminator('\r\n'.encode('utf-8'))  # 消息终止标志\r\n
         self.data = []  # 数据缓冲区（一次接收的消息可能不完整，用缓冲区存直到出现终止符）
         self.usr_name = ''  # 用户名
+        # by lanying 
+        self.AESKey_is_init=False
+        self.RSAinstance=RSAmessage()
+        self.AESinstance=AESmessage('')
+        send_dict = dict(type='init', msg='RSApubKey', Key=str(self.RSAinstance.pubKey,encoding='utf-8'))
+        send_json = json.dumps(send_dict)
+        self.SecurityPush((send_json+'\r\n').encode('utf-8'))
+        # by lanying
         self.enter(self.server.hall)  # 创建之后就进入大厅
 
     def enter(self, room):
@@ -35,7 +43,13 @@ class ChatSession(asynchat.async_chat):
         :param data:
         :return:
         '''
-        self.data.append(data.decode('utf-8'))
+        # by lanying
+        if self.AESKey_is_init:
+            data=self.AESinstance.AESDecrypt(data)
+            self.data.append(data)
+        else:
+            self.data.append(data.decode('utf-8'))
+        # by lanying
 
     def found_terminator(self):
         '''
@@ -53,3 +67,12 @@ class ChatSession(asynchat.async_chat):
 
     def handle_close(self):
         asynchat.async_chat.handle_close(self)
+    
+    # by lanying
+    def SecurityPush(self,sendbuffer):
+        if self.AESKey_is_init:
+            sendbuffer=self.AESinstance.AESEncript(str(sendbuffer,encoding='utf-8'))
+        else:
+            pass
+        self.push(sendbuffer)
+    # by lanying
