@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # 命令json(dict)
-# 登陆
+# 登录
 {'type': 'command',
  'msg': 'login',
  'usr_name': 'lrx',
@@ -33,6 +33,20 @@
  'info': ''
  }
 
+# 修改密码
+{'type': 'command',
+ 'msg': 'change_password',
+ 'usr_name': 'lrx',
+ 'old_password': '123456',
+ 'new_password': '654321',
+ 'timestamp': 1530000000}
+# response
+{'type': 'server_response',
+ 'status': True, # False
+ 'msg': 'Succeed.',
+ 'info': ''
+ }
+ 
 # 创建群
 {'type': 'command',
  'msg': 'create_group',
@@ -94,7 +108,10 @@
  'msg': 'Succeed.',
  'info': {'creator': 'lrx',
           'group_name': 'group1',
-          'members': ['wy', 'lrx', 'ly', 'qwt']}
+          'members': ['wy', 'lrx', 'ly', 'qwt'],
+          'files': ['a.txt', 'b.jpg'],
+          'history': ['lrx: hello!\nwy: hello.\n']
+          }
  }
 
 # 消息
@@ -116,3 +133,92 @@
  'usr_name': 'lrx',
  'message': 'hello world'
  }
+
+ # 加好友请求
+{'type': 'command',
+ 'msg': 'add_friend',
+ 'usr_name': 'lrx',
+ 'friend_name': 'wy',
+ 'verification_message': 'hello',
+ 'timestamp': 1530000000}
+# response
+{'type': 'server_response',
+ 'status': True,
+ 'msg': 'Succeed.'
+ }
+ 
+ # 查看收到的请求
+{'type': 'command',
+ 'msg': 'get_verification_message',
+ 'usr_name': 'lrx',
+ 'timestamp': 1530000000}
+# response
+{'type': 'server_response',
+ 'status': True,
+ 'msg': 'Succeed.',
+ 'info': {'wy':'hello', 'ly':'hi', 'qwt':'Hi'}
+ }
+ 
+ # 接受或拒绝请求
+{'type': 'command',
+ 'msg': 'add_friend_response',
+ 'usr_name': 'lrx',
+ 'friend_name': 'wy',
+ 'accept': True,
+ 'timestamp': 1530000000}
+# response
+{'type': 'server_response',
+ 'status': True,
+ 'msg': 'Succeed.'
+ }
+ 
+# 邀请好友进群
+{'type': 'command',
+ 'msg': 'invite_friend',
+ 'usr_name': 'lrx',
+ 'friend_name': 'wy',
+ 'group_name': 'group1',
+ 'timestamp': 1530000000}
+# response
+{'type': 'server_response',
+ 'status': True,
+ 'msg': 'Succeed.'
+ }
+ 
+ # 群主踢人
+{'type': 'command',
+ 'msg': 'remove_person',
+ 'usr_name': 'lrx',
+ 'friend_name': 'wy',
+ 'group_name': 'group1',
+ 'timestamp': 1530000000}
+# response
+{'type': 'server_response',
+ 'status': True,
+ 'msg': 'Succeed.'
+ }
+ 
+ # 查询用户所在群列表
+{'type': 'command',
+ 'msg': 'get_group_list',
+ 'usr_name': 'lrx',
+ 'timestamp': 1530000000}
+# response
+{'type': 'server_response',
+ 'status': True,
+ 'msg': 'Succeed.',
+ 'info': ['group1', 'group2']
+ }
+ 
+ # 查询用户好友列表
+{'type': 'command',
+ 'msg': 'get_friend_list',
+ 'usr_name': 'lrx',
+ 'timestamp': 1530000000}
+# response
+{'type': 'server_response',
+ 'status': True,
+ 'msg': 'Succeed.',
+ 'info': ['wy', 'ly', 'qwt']
+ }
+ 

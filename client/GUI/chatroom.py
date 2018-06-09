@@ -487,7 +487,6 @@ class Room:
         if self.usr_name != info['creator']:
             messagebox.showerror('Fail', 'You are not the creator of the room.')
             return
-        # TODO room setting part
         tl = Toplevel(self.tk)
         tl.title('setting')
         width, height = 500, 400
@@ -603,7 +602,9 @@ class Room:
     # 刷新历史消息
     def flush_hist(self, info):
         self.clear_msg()
-        self.recv_msg(self.room_name, info['history'])
+        s = info['history'][:-1]
+        info['history']=''
+        self.recv_msg(self.room_name, s)
 
     def share_file(self, room_name):
         file_name = filedialog.askopenfilename()
