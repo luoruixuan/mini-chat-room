@@ -47,7 +47,7 @@ class CommandHandler(object):
         :param cmd_json:json字符串
         :return:
         '''
-        session.push((ServerResponse('bad command', False) + '\r\n').encode('utf-8'))  # 这里用push，是async_chat的方式
+        session.SecurityPush((ServerResponse('bad command', False) + '\r\n').encode('utf-8'))  # 这里用push，是async_chat的方式
 
     def handle(self, session, cmd_json):
         '''
@@ -93,7 +93,15 @@ class CommandHandler(object):
                 method(session, cmd_dict)
 
                 # raise BadCmd
-
+            # by lanying
+            elif cmd_dict['type']=='init':
+                method = getattr(self, 'do_init_AES_Key',None)
+                try:
+                    method(session, cmd_dict)
+                except:
+                    raise BadCmd
+            # by lanying
+            
             else:
                 raise BadCmd
         except Exception as err:
@@ -133,7 +141,7 @@ class Room(CommandHandler):
         '''
         for i in self.sessions:
             if i != session:
-                i.push((line + '\r\n').encode('utf-8'))
+                i.SecurityPush((line + '\r\n').encode('utf-8'))
 
     def do_logout(self, session, line):
         raise EndSession
@@ -160,9 +168,10 @@ class Hall(Room):
         self.sessions.append(session)
         if session.usr_name == '':
             # 空用户名表示一个未注册的用户
-            session.push((ServerResponse('please login') + '\r\n').encode('utf-8'))
+            # session.SecurityPush((ServerResponse('please login') + '\r\n').encode('utf-8'))
+            pass
         else:
-            session.push((ServerResponse('back to hall') + '\r\n').encode('utf-8'))
+            session.SecurityPush((ServerResponse('back to hall') + '\r\n').encode('utf-8'))
 
     def do_login(self, session, cmd_dict):
         '''
@@ -173,13 +182,13 @@ class Hall(Room):
         '''
         name = cmd_dict['usr_name']
         if not name:
-            session.push((ServerResponse('usr_name empty', False) + '\r\n').encode('utf-8'))
+            session.SecurityPush((ServerResponse('usr_name empty', False) + '\r\n').encode('utf-8'))
         elif name in self.server.active_users:
-            session.push((ServerResponse('usr_name exist', False) + '\r\n').encode('utf-8'))
+            session.SecurityPush((ServerResponse('usr_name exist', False) + '\r\n').encode('utf-8'))
         else:
             session.usr_name = name
             self.server.active_users[session.usr_name] = session  # 服务器端保存新用户的名称，映射到它的会话
-            session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+            session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_logout(self, session, cmd_dict):
         '''
@@ -190,7 +199,7 @@ class Hall(Room):
         '''
         del self.server.active_users[session.usr_name]  # 服务器活跃用户列表中删除
         self.sessions.remove(session)  # 大厅中删除
-        session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+        session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
         raise EndSession  # 抛出结束会话异常
 
     def do_create_group(self, session, cmd_dict):
@@ -202,12 +211,12 @@ class Hall(Room):
         '''
         group_name = cmd_dict['group_name']
         if group_name in self.server.group_rooms:
-            session.push((ServerResponse('group exist', False) + '\r\n').encode('utf-8'))
+            session.SecurityPush((ServerResponse('group exist', False) + '\r\n').encode('utf-8'))
             return
         self.server.group_rooms[group_name] = GroupRoom(self.server, group_name, session.usr_name)  # 创建群
         self.sessions.remove(session)  # 大厅中删除
         session.enter(self.server.group_rooms[group_name])
-        session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+        session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_enter_group(self, session, cmd_dict):
         '''
@@ -218,11 +227,11 @@ class Hall(Room):
         '''
         group_name = cmd_dict['group_name']
         if group_name not in self.server.group_rooms:
-            session.push((ServerResponse('group not exist', False) + '\r\n').encode('utf-8'))
+            session.SecurityPush((ServerResponse('group not exist', False) + '\r\n').encode('utf-8'))
             return
         self.sessions.remove(session)  # 大厅中删除
         session.enter(self.server.group_rooms[group_name])
-        session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+        session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
         # 告知群内其他人，这个在GroupRoom.add()方法内完成
 
@@ -233,7 +242,7 @@ class Hall(Room):
         :param cmd_dict:
         :return:
         '''
-        session.push((ServerResponse('not implemented', False) + '\r\n').encode('utf-8'))
+        session.SecurityPush((ServerResponse('not implemented', False) + '\r\n').encode('utf-8'))
         pass
 
 
@@ -278,7 +287,7 @@ class GroupRoom(Room):
         for user_session in self.sessions:
             # 取出所有用户名
             info_dict['members'].append(user_session.usr_name)
-        session.push((ServerResponse('Succeed.', status=True, info=info_dict) + '\r\n').encode('utf-8'))
+        session.SecurityPush((ServerResponse('Succeed.', status=True, info=info_dict) + '\r\n').encode('utf-8'))
 
     def do_leave_group(self, session, cmd_dict):
         '''
@@ -293,7 +302,7 @@ class GroupRoom(Room):
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(session, broad_json)
         session.enter(self.server.hall)  # 返回大厅
-        session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+        session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_group_message(self, session, group_msg_dict):
         '''
@@ -310,7 +319,7 @@ class GroupRoom(Room):
                           message=group_msg_dict['msg'])
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(session, broad_json)
-        session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+        session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_file_message(self, session, file_message_dict):
         broad_dict = dict(type='person_share_file', group_name=self.room_name,
@@ -318,7 +327,7 @@ class GroupRoom(Room):
                           file_content=file_message_dict['file_content'])
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(session, broad_json)
-        session.push((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+        session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
 class SingleRoom(Room):
     '''
