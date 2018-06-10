@@ -403,10 +403,12 @@ class ChatGroup:
         sql4 = 'Delete From Users_ChatgroupMem Where Groupid=%d and Memid=%d'
         cursor.execute(sql1 % (self.username, Memname))
         results = cursor.fetchall()
+        executorid = 0
+        RemoveMemid = 0
         for row in results:
             if row[1] == self.username:
                 executorid = row[0]
-            elif row[1] == Memname:
+            if row[1] == Memname:
                 RemoveMemid = row[0]
         if self.groupOwner == executorid:
             if self.groupOwner == RemoveMemid:  # 解散群
@@ -482,13 +484,12 @@ class GroupMessages:
         self.group = ChatGroup(username)
         state = self.group.OpenGroup(groupname)
 
-    def addMessage(self, promulgator, message):
+    def addMessage(self, promulgator, message, date_time):
         # 参数：promulgator:发布消息的用户，message：str消息
         conn = sqlite3.connect('test.db')
         cursor = conn.cursor()
         sql1 = 'Select Userid From Users_User_Info Where Username="%s"'
-        sql2 = "Insert into Users_Messages(From_uid,To_gid,Body,Date_commit) values(%d,%d," % s
-        ",GETDATE())"
+        sql2 = 'Insert into Users_Messages(From_uid,To_gid,Body,Date_commit) values(%d,%d,"%s","%s")'
         cursor.execute(sql1 % promulgator)
         row = cursor.fetchone()
         if row:
@@ -497,8 +498,7 @@ class GroupMessages:
             conn.close()
             return -1
         try:
-
-            cursor.execute(sql2 % (from_uid, self.group.groupid, message))
+            cursor.execute(sql2 % (from_uid, self.group.groupid, message, date_time))
             conn.commit()
         except:
             conn.rollback()

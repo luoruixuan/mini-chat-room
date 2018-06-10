@@ -40,7 +40,6 @@ class ChatServer(asyncore.dispatcher):
         self.all_users = []  # 全体用户名及其密码
         self.hall = Hall(self, 'Hall')  # 大厅，所有活跃群和活跃用户将会在这里被记录
         self.group_rooms = {}  # 群
-        self.single_rooms = {}  # 一对一聊天
 
         self.init_users_groups()  # 初始化all_users和group_rooms
 

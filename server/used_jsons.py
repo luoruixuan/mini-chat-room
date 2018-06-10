@@ -72,40 +72,34 @@
  'info': ''
  }
 
-# 进入群
+# 群主踢人
 {'type': 'command',
- 'msg': 'enter_group',
+ 'msg': 'remove_person',
  'usr_name': 'lrx',
+ 'friend_name': 'wy',
  'group_name': 'group1',
  'timestamp': 1530000000}
 # response
 {'type': 'server_response',
  'status': True,
- 'msg': 'Succeed.',
- 'info': ''
+ 'msg': 'Succeed.'
  }
-# 成功时给其他人
-{'type': 'person_in',
+# 1、creator, creator:
+# 向群内所有人发
+{'type': 'usr_removed',
  'group_name': 'group1',
- 'usr_name': 'lrx'
- }
-
-# 离开群
-{'type': 'command',
- 'msg': 'leave_group',
- 'usr_name': 'lrx',
+ 'msg': 'You are removed from group1'
+}
+# 2、creator/X, X:
+# 向X发
+{'type': 'usr_removed',
  'group_name': 'group1',
- 'timestamp': 1530000000}
-# response
-{'type': 'server_response',
- 'status': True,
- 'msg': 'Succeed.',
- 'info': ''
- }
-# 成功时给其他人
+ 'msg': 'You are removed from group1'
+}
+# 向群内其它人发
 {'type': 'person_out',
  'group_name': 'group1',
- 'usr_name': 'lrx'
+ 'usr_name': 'X'
  }
 
 # 查看群信息
@@ -125,7 +119,13 @@
           'history': ['lrx: hello!\nwy: hello.\n']
           }
  }
-
+[{},{},{},{}]
+{
+'group_name': 'group1',
+'usr_name': 'lrx',
+ 'message': 'hello world',
+ 'date_time': '2010-01-01 12:00:00'
+}
 # 消息
 # 在群内说话
 {'type': 'group_message',
@@ -143,7 +143,8 @@
 {'type': 'person_speak',
  'group_name': 'group1',
  'usr_name': 'lrx',
- 'message': 'hello world'
+ 'message': 'hello world',
+ 'date_time': '2010-01-01 12:00:00'
  }
 
  # 加好友请求

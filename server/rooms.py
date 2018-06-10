@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# todo
-# 1、所有的时间戳都没考虑
-
 import json
 import traceback
+import datetime
 import DataBaseInterface
 from project_logger import logger
 
@@ -199,6 +197,7 @@ class Hall(Room):
             session.SecurityPush((ServerResponse('usr_name empty', False) + '\r\n').encode('utf-8'))
         elif name in self.server.active_users:
             # 这里是阻止同一个用户重复登录，因此检查用的是active_users
+            # self.server.active_users[name].do_logout(self.server.active_users[name], dict)
             session.SecurityPush((ServerResponse('usr_name exist', False) + '\r\n').encode('utf-8'))
         else:
             # 去服务器用户列表中检查
@@ -297,7 +296,7 @@ class Hall(Room):
         session.enter(self.server.group_rooms[group_name])
         # 在数据库内添加这个群，并把群主加入这个群（已封装）
         group_query = DataBaseInterface.ChatGroup(session.usr_name)
-        group_query.CreateGroup(group_name) # 这个函数已测试可用
+        group_query.CreateGroup(group_name)  # 这个函数已测试可用
 
         session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
@@ -306,15 +305,21 @@ class Hall(Room):
         进入一个群
         这个有什么数据库操作吗
         是否还允许用户直接进入某一个群？
+        Okay 这个函数没了
         :param session:
         :param cmd_dict:
         :return:
         '''
+        session.SecurityPush((ServerResponse('not implemented', False) + '\r\n').encode('utf-8'))
+        return
         group_name = cmd_dict['group_name']
         if group_name not in self.server.group_rooms:
             session.SecurityPush((ServerResponse('group not exist', False) + '\r\n').encode('utf-8'))
             return
         session.enter(self.server.group_rooms[group_name])
+
+        # 数据库操作应该是，把某个用户加到某个群里
+        # Todo 这个操作不应该有了
         session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
         # 告知群内其他人，这个在GroupRoom.add_session()方法内完成
@@ -335,7 +340,7 @@ class GroupRoom(Room):
     群
     本层支持的命令:
     desc_group
-    leave_group
+    remove_person
     '''
 
     def __init__(self, server, room_name, creator):
@@ -350,15 +355,15 @@ class GroupRoom(Room):
 
     def add_session(self, session):
         '''
-        添加新用户进群
-        并将新用户进入的消息 广播给群内其他人
+        添加一个新的session
+        相当于一个新的群内用户上线
         :param session:
         :return:
         '''
         self.sessions.append(session)
-        broad_dict = dict(type='person_in', group_name=self.room_name, usr_name=session.usr_name)
-        broad_json = json.dumps(broad_dict, ensure_ascii=False)
-        self.broadcast(session, broad_json)
+        # broad_dict = dict(type='person_in', group_name=self.room_name, usr_name=session.usr_name)
+        # broad_json = json.dumps(broad_dict, ensure_ascii=False)
+        # self.broadcast(session, broad_json)
 
     def do_desc_group(self, session, cmd_dict):
         '''
@@ -367,20 +372,101 @@ class GroupRoom(Room):
         :param cmd_dict:
         :return:
         '''
-        info_dict = dict(creator=self.creator, group_name=self.room_name, members=list())
-        for user_session in self.sessions:
-            # 取出所有用户名
-            info_dict['members'].append(user_session.usr_name)
+        info_dict = dict(creator=self.creator, group_name=self.room_name, members=list(),
+                         files=list(), history=list())
+        # 获取某个群内的所有用户名
+        group_query = DataBaseInterface.ChatGroup(session.usr_name)
+        info_dict['members'] = self.users.copy()
+        # 获取某个群内的文件
+        info_dict['files'] = group_query.query_files()
+        # 获取历史消息
+        info_dict['history'] = group_query.query_history()
+
         session.SecurityPush((ServerResponse('Succeed.', status=True, info=info_dict) + '\r\n').encode('utf-8'))
 
-    def do_leave_group(self, session, cmd_dict):
+    def do_remove_person(self, session, cmd_dict):
         '''
-        离开群，返回大厅
-        广播告诉其他人自己离开了
+        删除群内的人，有三种情况
+        1、群主删除自己，则群解散
+        2、群主删除一个人
+        3、自己删除自己，则退出该群
         :param session:
         :param cmd_dict:
         :return:
         '''
+        name = cmd_dict['usr_name']
+        friend_name = cmd_dict['friend_name']
+        if name == self.creator and name == friend_name:
+            # 群主删除自己
+            broad_dict = dict(type='usr_removed', group_name=self.room_name,
+                              msg='You are removed from ' + self.room_name)
+            # 群解散，广播告知所有在这个群内的session
+            broad_json = json.dumps(broad_dict, ensure_ascii=False)
+            self.broadcast(session, broad_json)
+            session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+
+            # 这个群被删除了，对每个session都去掉记录，对服务器去掉记录
+            # 或者说是消除内存中的记录
+            for user_session in self.sessions:
+                del user_session.entered_rooms[self.room_name]
+            del self.server.group_rooms[self.room_name]
+
+            # 数据库操作，彻底解散群，消除数据库中的记录
+            group_query = DataBaseInterface.ChatGroup(name)
+            group_query.OpenGroup(self.room_name)
+            group_query.removeMem(name)
+            session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+        elif name == self.creator and name != friend_name:
+            friend_session = self.server.active_users[friend_name]
+            # 群主踢人
+            broad_dict = dict(type='usr_removed', group_name=self.room_name,
+                              msg='You are removed from ' + self.room_name)
+            # 只向被踢的人发
+            broad_json = json.dumps(broad_dict, ensure_ascii=False)
+            friend_session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+            # 告诉别人这个人被踢了
+            broad_dict = dict(type='person_out', group_name=self.room_name, usr_name=friend_name)
+            broad_json = json.dumps(broad_dict, ensure_ascii=False)
+            self.broadcast(friend_session, broad_json)
+            # 删除内存记录
+            del friend_session.entered_rooms[self.room_name]
+            self.remove_session(friend_session)
+            self.users.remove(friend_name)
+            # 删除数据库记录
+            group_query = DataBaseInterface.ChatGroup(name)
+            group_query.OpenGroup(self.room_name)
+            group_query.removeMem(friend_name)
+            session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+        elif name != self.creator and name == friend_name:
+            # 删除自己
+            broad_dict = dict(type='usr_removed', group_name=self.room_name,
+                              msg='You are removed from ' + self.room_name)
+            broad_json = json.dumps(broad_dict, ensure_ascii=False)
+            session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+            broad_dict = dict(type='person_out', group_name=self.room_name, usr_name=name)
+            broad_json = json.dumps(broad_dict, ensure_ascii=False)
+            self.broadcast(session, broad_json)
+            del session.entered_rooms[self.room_name]
+            self.remove_session(session)
+            self.users.remove(name)
+            group_query = DataBaseInterface.ChatGroup(name)
+            group_query.OpenGroup(self.room_name)
+            group_query.removeMem(name)
+            session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+        else:
+            # 删除失败
+            session.SecurityPush((ServerResponse('remove fail', False) + '\r\n').encode('utf-8'))
+
+    def do_leave_group(self, session, cmd_dict):
+        '''
+        某一个用户离开某一个群
+        分两种情况，是群主则直接解散该群；不是群主则退出该群
+        :param session:
+        :param cmd_dict:
+        :return:
+        '''
+        session.SecurityPush((ServerResponse('not implemented', False) + '\r\n').encode('utf-8'))
+        return
         self.sessions.remove(session)  # 当前房间中删除
         broad_dict = dict(type='person_out', group_name=self.room_name, usr_name=session.usr_name)
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
@@ -399,10 +485,15 @@ class GroupRoom(Room):
         :param group_msg_dict:
         :return:
         '''
+        server_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         broad_dict = dict(type='person_speak', group_name=self.room_name, usr_name=session.usr_name,
-                          message=group_msg_dict['msg'])
+                          message=group_msg_dict['msg'], date_time=server_time)
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(session, broad_json)
+        # 记录进数据库里
+        message_query = DataBaseInterface.GroupMessages(session.usr_name, self.room_name)
+        message_query.addMessage(broad_dict['usr_name'], broad_dict['message'], broad_dict['date_time'])
+
         session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_file_message(self, session, file_message_dict):
