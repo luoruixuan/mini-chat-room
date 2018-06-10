@@ -5,6 +5,7 @@
 
 import json
 import traceback
+import DataBaseInterface
 from project_logger import logger
 
 
@@ -94,17 +95,20 @@ class CommandHandler(object):
 
                 # raise BadCmd
             # by lanying
-            elif cmd_dict['type']=='init':
-                method = getattr(self, 'do_init_AES_Key',None)
+            elif cmd_dict['type'] == 'init':
+                method = getattr(self, 'do_init_AES_Key', None)
                 try:
                     method(session, cmd_dict)
                 except:
                     raise BadCmd
             # by lanying
-            
+
             else:
                 raise BadCmd
         except Exception as err:
+            if isinstance(err, EndSession):
+                raise EndSession  # 这个不能在这被捕获
+                return
             logger.error("cmd_json explain error: \n%s\n%s", cmd_json, traceback.format_exc())
             self.unknown(session, cmd_json)
             return
@@ -119,17 +123,19 @@ class Room(CommandHandler):
     def __init__(self, server, room_name):
         '''
         初始化房间，保存当前用户会话列表，服务器实例，房间名
+        为了支持离线聊天，需要保存当前房间内有哪些用户（不一定在线）
         :param server:
         :param room_name:
         '''
         self.sessions = []
+        self.users = []  # 这个是为了保存有哪些用户的，存的是用户名['lrx', 'wy']
         self.server = server
         self.room_name = room_name
 
-    def add(self, session):
+    def add_session(self, session):
         self.sessions.append(session)
 
-    def remove(self, session):
+    def remove_session(self, session):
         self.sessions.remove(session)
 
     def broadcast(self, session, line):
@@ -153,15 +159,15 @@ class Hall(Room):
     本层支持的命令:
     login
     logout
+    change_password
     create_group
     create_single
     enter_group
     '''
 
-    def add(self, session):
+    def add_session(self, session):
         '''
         新用户的会话出现，加到大厅里
-        或者一个用户从某一个房间内返回大厅
         :param session:
         :return:
         '''
@@ -171,23 +177,55 @@ class Hall(Room):
             # session.SecurityPush((ServerResponse('please login') + '\r\n').encode('utf-8'))
             pass
         else:
+            # 由于可以同时在多个房间里，因此这句没用了
             session.SecurityPush((ServerResponse('back to hall') + '\r\n').encode('utf-8'))
 
     def do_login(self, session, cmd_dict):
         '''
         处理用户登陆命令
+
+        检查服务器的用户列表中是否有这个用户，并且密码是否匹配（注册放在另一个地方）
         :param session:
         :param cmd_dict:
         :return:
         '''
         name = cmd_dict['usr_name']
+        password = cmd_dict['password']
+        login_timestamp = cmd_dict['timestamp']
+        # 3、用户登入时，根据数据库，初始化该用户所在的房间列表，并发最近消息给该用户（todo，传一个
+        # 时间戳在登陆时，发这个时间之后的消息）
+
         if not name:
             session.SecurityPush((ServerResponse('usr_name empty', False) + '\r\n').encode('utf-8'))
         elif name in self.server.active_users:
+            # 这里是阻止同一个用户重复登录，因此检查用的是active_users
             session.SecurityPush((ServerResponse('usr_name exist', False) + '\r\n').encode('utf-8'))
         else:
+            # 去服务器用户列表中检查
+            matched = False
+            for up_tuple in self.server.all_users:
+                if name == up_tuple[0] and password == up_tuple[1]:
+                    matched = True
+                    break
+                elif name == up_tuple[0] and password != up_tuple[1]:
+                    session.SecurityPush((ServerResponse('Password error.', False) + '\r\n').encode('utf-8'))
+                    return
+            if not matched:
+                session.SecurityPush((ServerResponse('User not exist.', False) + '\r\n').encode('utf-8'))
+                return
+            # 只有在 server.all_users中找到了用户并匹配了密码，才登录成功
             session.usr_name = name
-            self.server.active_users[session.usr_name] = session  # 服务器端保存新用户的名称，映射到它的会话
+            self.server.active_users[session.usr_name] = session  # 服务器端保存新活跃用户的名称，映射到它的会话
+            # 初始化这个用户所在的房间列表(即群) session.entered_rooms
+            group_query = DataBaseInterface.ChatGroup(username=name)
+            room_names = []
+            res = group_query.queryChatGroupList(room_names)
+            for room_name in room_names:
+                session.enter(self.server.group_rooms[room_name])
+                # enter里调用的是 room.add_session，所以不应该用 person_in 广播了，得处理一下
+                # 也就是说，一个用户在不在一个群里，和它的session打不打开应该没关系
+                # 房间内都应该能看到这个用户，但不一定有这个用户的session
+
             session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_logout(self, session, cmd_dict):
@@ -198,13 +236,55 @@ class Hall(Room):
         :return:
         '''
         del self.server.active_users[session.usr_name]  # 服务器活跃用户列表中删除
-        self.sessions.remove(session)  # 大厅中删除
+        # 所在每个房间的sessions中删除，包括了大厅和所有所在的群
+        for entered_room in session.entered_rooms.values():
+            entered_room.remove_session(session)
         session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
         raise EndSession  # 抛出结束会话异常
+
+    def do_change_password(self, session, cmd_dict):
+        '''
+        修改密码
+        :param session:
+        :param cmd_dict:
+        :return:
+        '''
+        # 这个操作将修改数据库中存储的密码，而服务器内存中保存的密码也得修改一份
+        # 原则：先改内存后改数据库？尽量还是原子性的，防止不一致吧
+        usr_name = cmd_dict['usr_name']
+        old_password = cmd_dict['old_password']
+        new_password = cmd_dict['new_password']
+        # 只能修改自己的密码，同时确定了用户是已存在的用户
+        if usr_name != session.usr_name:
+            session.SecurityPush((ServerResponse('No authority.', False) + '\r\n').encode('utf-8'))
+            return
+        # 去服务器用户列表中检查
+        match_tuple = ()
+        for up_tuple in self.server.all_users:
+            if usr_name == up_tuple[0] and old_password == up_tuple[1]:
+                match_tuple = up_tuple
+                # 匹配到了，那么更换成新密码
+                break
+            elif usr_name == up_tuple[0] and old_password != up_tuple[1]:
+                session.SecurityPush((ServerResponse('OldPassword error.', False) + '\r\n').encode('utf-8'))
+                return
+        # match_tuple 不会是()，否则前面就会退出
+        self.server.all_users.remove(match_tuple)
+        new_tuple = (usr_name, new_password)
+        self.server.all_users.append(new_tuple)
+        # 服务器是单线程的，还需要更新数据库中的(用户名，密码)对
+        user_query = DataBaseInterface.UserOperations()
+        res = user_query.change_password(usr_name, new_password)
+        if res == -1:
+            session.SecurityPush((ServerResponse('Modify db Fail.', False) + '\r\n').encode('utf-8'))
+            # 这个错误，应该不会出现。
+        elif res == 0:
+            session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_create_group(self, session, cmd_dict):
         '''
         创建一个群，并进入（成为群主）
+        加上数据库操作
         :param session:
         :param cmd_dict:
         :return:
@@ -214,13 +294,18 @@ class Hall(Room):
             session.SecurityPush((ServerResponse('group exist', False) + '\r\n').encode('utf-8'))
             return
         self.server.group_rooms[group_name] = GroupRoom(self.server, group_name, session.usr_name)  # 创建群
-        self.sessions.remove(session)  # 大厅中删除
         session.enter(self.server.group_rooms[group_name])
+        # 在数据库内添加这个群，并把群主加入这个群（已封装）
+        group_query = DataBaseInterface.ChatGroup(session.usr_name)
+        group_query.CreateGroup(group_name) # 这个函数已测试可用
+
         session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_enter_group(self, session, cmd_dict):
         '''
         进入一个群
+        这个有什么数据库操作吗
+        是否还允许用户直接进入某一个群？
         :param session:
         :param cmd_dict:
         :return:
@@ -229,11 +314,10 @@ class Hall(Room):
         if group_name not in self.server.group_rooms:
             session.SecurityPush((ServerResponse('group not exist', False) + '\r\n').encode('utf-8'))
             return
-        self.sessions.remove(session)  # 大厅中删除
         session.enter(self.server.group_rooms[group_name])
         session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
-        # 告知群内其他人，这个在GroupRoom.add()方法内完成
+        # 告知群内其他人，这个在GroupRoom.add_session()方法内完成
 
     def do_enter_single(self, session, cmd_dict):
         '''
@@ -264,7 +348,7 @@ class GroupRoom(Room):
         Room.__init__(self, server, room_name)
         self.creator = creator  # 群主
 
-    def add(self, session):
+    def add_session(self, session):
         '''
         添加新用户进群
         并将新用户进入的消息 广播给群内其他人
@@ -328,6 +412,7 @@ class GroupRoom(Room):
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(session, broad_json)
         session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+
 
 class SingleRoom(Room):
     '''
