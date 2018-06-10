@@ -18,7 +18,7 @@ class Room:
         self.history = []   #存储该房间的历史信息
         self.history_len = 0
         self.last_history = 0
-        self.call = None    # 对于二人聊天，对房间的称呼应该为对方的名字，而不是self.name
+        self.another = None    # 对于二人聊天，对房间的称呼应该为对方的名字，而不是self.name
 
     def set(self, name, id, member, owner, user_id = None):
         self.name = name
@@ -31,7 +31,7 @@ class Room:
         if self.single is True:
             for i in self.member:
                 if user_id != i:
-                    self.call = self.member[i]
+                    self.another = (i, self.member[i])
 
     def update(self, data):
         if data['type'] == 'roomMessage':
@@ -51,7 +51,7 @@ class UI(tk.Frame):
         self.friends = {}
         self.name = None
         self.id = None
-        self.curPos = None  #用户所在的位置（某个房间或用户）
+        self.curRoom = None  #用户所在的位置（某个房间或用户）
         self.showRow = 0 # 左边展示的房间&朋友的
         self.shows = []
 
@@ -79,20 +79,26 @@ class UI(tk.Frame):
         if recv_data['type'] == 'selfEnterRoom':
             room = Room(single=False)
             room.set(recv_data['room_name'], recv_data['room_id'], recv_data['member'], recv_data['owner'])
+            room.member[self.id] = self.name
             self.rooms[room.id] = room
-            self.curPos = room
+            self.curRoom = room
             self.showRoom(room)      # 显示该房间
 
         while True:
             recv_data = self.recv()
             if recv_data['type'] == 'otherEnterRoom':
                 room = self.rooms[recv_data['room_id']]
-                room.member[recv_data['user_id']] = [recv_data['user_name']]
+                room.member[recv_data['user_id']] = recv_data['user_name']
             elif recv_data['type'] == 'selfEnterRoom':
                 room = Room(single=recv_data['single'])
                 room.set(recv_data['room_name'], recv_data['room_id'], recv_data['member'], recv_data['owner'], self.id)
                 self.rooms[room.id] = room
                 self.showRoom(room)    # 在窗口左侧显示该房间
+                if room.single is True:
+                    # 添加到我的朋友
+                    friend_id = room.another[0]
+                    friend_name = room.another[1]
+                    self.friends[friend_id] = friend_name
             elif recv_data['type'] == 'roomMessage' :
                 room = self.rooms[recv_data['room_id']]
                 room.update(recv_data)
@@ -102,7 +108,7 @@ class UI(tk.Frame):
             elif recv_data['type'] == 'fileShare':
                 # 用户向服务器请求传输文件后，服务器对用户的响应
                 port = recv_data['port']
-                t = threading.Thread(target=self.processShareFile, args=(host, port, self.file_name, self.curPos))
+                t = threading.Thread(target=self.processShareFile, args=(host, port, self.file_name, self.curRoom))
                 t.start()
             self.updateCurrent()
 
@@ -111,7 +117,7 @@ class UI(tk.Frame):
         name = room.name
         pre_name = '群聊'
         if room.single is True:
-            name = room.call
+            name = room.another[1]
             pre_name = '朋友'
 
         but = tk.Button(self.frame1, activebackground = '#dddddd', bg = '#cccccc', justify = tk.CENTER,
@@ -124,13 +130,13 @@ class UI(tk.Frame):
 
     def clickLeftBut(self, room):
         # print('clickLeftBut: %s'%room.name)
-        if room == self.curPos:
+        if room == self.curRoom:
             return
-        self.curPos = room
+        self.curRoom = room
         if room.single:
-            self.name_label['text'] = self.curPos.call
+            self.name_label['text'] = self.curRoom.another[1]
         else:
-            self.name_label['text'] = self.curPos.name
+            self.name_label['text'] = self.curRoom.name
         self.hist_box.delete(0.0, tk.END)
         for i in range(room.history_len):
             self.hist_box.insert(tk.END, room.history[i] +'\n')
@@ -138,9 +144,9 @@ class UI(tk.Frame):
 
     def updateCurrent(self):
         # print('updateCurrent')
-        for i in range(self.curPos.last_history, self.curPos.history_len):
-            self.hist_box.insert(tk.END, self.curPos.history[i] + '\n')
-        self.curPos.last_history = self.curPos.history_len
+        for i in range(self.curRoom.last_history, self.curRoom.history_len):
+            self.hist_box.insert(tk.END, self.curRoom.history[i] + '\n')
+        self.curRoom.last_history = self.curRoom.history_len
 
     def initLayout(self):
         self.grid()
@@ -173,7 +179,11 @@ class UI(tk.Frame):
         self.create_btn.columnconfigure(1, weight = 1)
 
         self.name_label = tk.Label(self.frame2, text = '公众聊天室', font = font.Font(family='楷体', size = 17))
-        self.name_label.grid()
+        self.name_label.grid(row = 0, column = 0)
+        self.room_set = tk.Button(self.frame2, text = '更多', font = font.Font(family='楷体', size = 17),
+                                     command = self.clickRoomSet)
+        self.room_set.grid(row = 0, column = 1)
+        self.room_set.place(x = 520, y = 0)
 
         self.hist_box = tk.Text(self.frame3, bg='#eeeeee', height = 20,font = font.Font(family='新宋', size = 13))
         self.hist_box.grid()
@@ -181,10 +191,13 @@ class UI(tk.Frame):
         self.input_box = tk.Text(self.frame4, bg='#eeeeee',height = 6, font = font.Font(family='新宋', size = 13))
         self.input_box.grid()
 
-        self.send_btn = tk.Button(self.frame5, text = '发送', command=lambda :self.clickSendBtn())
-        self.send_btn.grid(row = 0, column = 0)
-        self.send_btn = tk.Button(self.frame5, text = '文件', command=lambda :self.clickFileBtn())
-        self.send_btn.grid(row = 0, column = 1)
+        send_btn = tk.Button(self.frame5, text = '发送', command=lambda :self.clickSendBtn(),font = font.Font(family='新宋', size = 13))
+        send_btn.grid(row = 0, column = 0)
+        send_btn.place(x = 490, y = 0)
+        file_btn = tk.Button(self.frame5, text = '文件', command=lambda :self.clickFileBtn(),font = font.Font(family='新宋', size = 13))
+        file_btn.grid(row = 0, column = 1)
+        file_btn.place(x = 540, y = 0)
+
 
         self.frame1.grid_propagate(0)
         self.frame2.grid_propagate(0)
@@ -192,6 +205,56 @@ class UI(tk.Frame):
         self.frame4.grid_propagate(0)
         self.frame5.grid_propagate(0)
         self.grid_propagate()
+
+    def clickRoomSet(self):
+        # 朋友和群显示的不一样
+        f = font.Font(family='楷体', size = 17)
+        if self.curRoom.single is True:
+            width = 200
+            height = 150
+            c = tk.Toplevel()
+            c.title('关于该房间')
+            c.minsize(width, height)
+            c.maxsize(width, height)
+            c.geometry('%dx%d+%d+%d' % (width, height, (c.winfo_screenwidth() - width) / 2, (c.winfo_screenheight() - height) / 2))
+            n = tk.Label(c, text='好友：%s'%self.curRoom.another[1], font = f)
+            n.grid()
+            n.place(x=30, y=50)
+        else:
+            width = 400
+            height = 500
+            c = tk.Toplevel()
+            c.title('关于该房间')
+            c.minsize(width, height)
+            c.maxsize(width, height)
+            c.geometry('%dx%d+%d+%d' % (width, height, (c.winfo_screenwidth() - width) / 2, (c.winfo_screenheight() - height) / 2))
+
+            def seeMember(room):
+                print(room.member)
+                all_member = tk.Text(c, font=f, bg='#fefeee')
+                for id in room.member:
+                    all_member.insert(tk.END, room.member[id] + '\n')
+                all_member.place(x=0, y=90)
+
+            def quitRoom(room):
+                # 群员退出群
+                pass
+
+            def dissoRoom(room):
+                # 群主解散群
+                pass
+
+            info = tk.Label(c, text = '群聊：%s'%(self.curRoom.name), font = f)
+            info.place(x = 100, y = 0)
+            see = tk.Button(c, text = '查看群成员', font = f, command = lambda :seeMember(self.curRoom))
+
+            see.place(x = 50, y = 50)
+            if self.id == self.curRoom.owner:
+                disso = tk.Button(c, text = '解散该群', font = f, command = lambda :dissoRoom(self.curRoom))
+                disso.place(x = 230, y = 50)
+            else:
+                quit = tk.Button(c, text = '退出该群', font = f, command = lambda :quitRoom(self.curRoom))
+                quit.place(x = 230, y = 50)
 
     def clickSendBtn(self):
         message = self.input_box.get(0.0, tk.END).strip()
@@ -201,10 +264,10 @@ class UI(tk.Frame):
         send_data = {}
 
         send_data['type'] = 'roomMessage'
-        send_data['room_id'] = self.curPos.id
+        send_data['room_id'] = self.curRoom.id
         send_data['user_name'] = self.name
         send_data['message'] = message
-        self.curPos.update(send_data)
+        self.curRoom.update(send_data)
         self.updateCurrent()
         send_data = json.dumps(send_data)
         self.sendInfo(send_data.encode('utf-8'))
@@ -213,19 +276,19 @@ class UI(tk.Frame):
         self.file_name = filedialog.askopenfilename()
         if not self.file_name:
             return
-        self.curPos.history.append(self.name+': '+'文件发送中...')
-        self.curPos.history_len += 1
+        self.curRoom.history.append(self.name+': '+'文件发送中...')
+        self.curRoom.history_len += 1
         self.updateCurrent()
 
         send_data = {'type': 'fileShare'}
-        send_data['room_id'] = self.curPos.id
+        send_data['room_id'] = self.curRoom.id
         send_data = json.dumps(send_data).encode('utf-8')
         self.sendInfo(send_data)
 
         # 等待服务器回复
         # 在process函数中等候
 
-    def processShareFile(self, host, port, file_name, curPos):
+    def processShareFile(self, host, port, file_name, curRoom):
         # 客户端新开的向服务器传输文件的线程
         try:
             csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -241,11 +304,11 @@ class UI(tk.Frame):
                 csock.send(pData)
             f.close()
 
-            curPos.history.append(self.name + ': ' + '文件发送成功:)')
+            curRoom.history.append(self.name + ': ' + '文件发送成功:)')
         except:
-            curPos.history.append(self.name+': '+'文件发送失败:(')
+            curRoom.history.append(self.name+': '+'文件发送失败:(')
         csock.close()
-        self.curPos.history_len += 1
+        self.curRoom.history_len += 1
         self.updateCurrent()
 
         print('分享文件的线程结束了！')
@@ -263,7 +326,49 @@ class UI(tk.Frame):
             return False
 
     def createRoom(self):
-        pass
+        width = 400
+        height = 500
+        c = tk.Toplevel()
+        c.title('选择群成员')
+        c.minsize(width, height)
+        c.maxsize(width, height)
+        c.geometry('%dx%d+%d+%d' % (width, height, (c.winfo_screenwidth() - width) / 2, (c.winfo_screenheight() - height) / 2))
+
+        def clickSure():
+            choices = []
+            for id in all_r:
+                if all_r[id].get() == 1:
+                    choices.append(id)
+            if len(choices) != 0:
+                choices.append(self.id)
+                send_data = {'type': 'createRoom'}
+                send_data['member'] = choices
+                send_data = json.dumps(send_data).encode('utf-8')
+                self.sendInfo(send_data)
+            c.destroy()
+
+        cur_row = 0
+        all_r = {}
+        if len(self.friends) != 0:
+            for id in self.friends:
+                v = tk.IntVar()     #判断该朋友是否被选中
+                r = tk.Checkbutton(c, text = self.friends[id], width = 9, font = font.Font(family='楷体', size = 17),
+                                   variable = v, bg = '#eeeeee')
+                r.grid(row = cur_row, column = 0)
+                all_r[id] = v
+                cur_row += 1
+
+        else:
+            note = tk.Label(c, text = '当前无好友', font = font.Font(family='楷体', size = 17))
+            note.grid()
+            note.place(x = 150, y = 280)
+
+        sure = tk.Button(c, text = '确定', font = font.Font(family='楷体', size = 17), bg = '#eeeeee',
+                         command = lambda: clickSure())
+        sure.grid(row = cur_row, column = 0)
+        sure.place(x = 330, y = 450)
+
+
 
 host = '127.0.0.1'
 port = 8000

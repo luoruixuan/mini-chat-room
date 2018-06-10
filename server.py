@@ -44,8 +44,8 @@ class User:
         pre_data = json.loads(pre_data.decode('utf-8').strip('\00'))
         if pre_data['type'] == 'len':
             data_len = pre_data['len']
-            print('数据长度为%d'%data_len)
             recv_data = self.session.recv(data_len).decode('utf-8')
+            print('数据长度为%d'%data_len, recv_data)
             return json.loads(recv_data)
 
     def process(self, session, all_users, all_rooms):
@@ -87,6 +87,14 @@ class User:
                 self.send(send_data)
                 t1 = threading.Thread(target=self.processShareFile, args=(host, port, all_rooms[recv_data['room_id']]))
                 t1.start()
+            elif data_type == 'createRoom':
+                room = Room(single=False)
+                room.owner = self.id
+                for id in recv_data['member']:
+                    id = int(id)
+                    room.member[int(id)] = all_users[id].name
+                    all_users[id].enterRoom(room)   #需要依次进入
+                all_rooms[GLOBAL_ROOM_ID - 1] = room
 
     def processShareFile(self, host, port, room):
         # 为接收、发送文件开辟的线程
