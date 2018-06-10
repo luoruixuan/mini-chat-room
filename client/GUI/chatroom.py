@@ -583,7 +583,7 @@ class Room:
             return
         if self.usr_name == s:
             self.room_name = 'Hall'
-            self.RN.configure(text='Room name: Hall')
+            self.RN.configure(text='房间名: Hall')
             self.clear_msg()
         #print('kick: '+s)
 
@@ -627,7 +627,7 @@ class Room:
 
     # 进入房间时初始化
     def flush_room(self, room_name, isfriend=False):
-        prefix = 'Friend name: ' if isfriend else 'Room name: '
+        prefix = '好友名: ' if isfriend else '房间名: '
         txt = prefix+room_name
         if isfriend:
             friend_name = room_name
