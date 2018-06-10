@@ -51,7 +51,7 @@ class ClientSession:
                     if js['msg']=='please login':
                         continue
                     elif js['msg']=='AC_AESKey':    # by lanying
-                        #self.AESKey_is_init=True
+                        self.AESKey_is_init=True
                         pass
                     self.waiting = js
                 # by lanying
@@ -85,7 +85,7 @@ class ClientSession:
         if self.AESKey_is_init:
             sendmsg=self.AESinstance.AESEncript(s.encode('utf-8'))
             self.socket.send(sendmsg)
-            self.socket.send('\r\n'.encode('utf-8'))
+            # self.socket.send('\r\n'.encode('utf-8'))
         else:
             self.socket.send((s+'\r\n').encode('utf-8'))
         # by lanying
