@@ -143,7 +143,8 @@ class UI(tk.Frame):
                 self.hist_box.insert(tk.END, info[1]+':'+info[2] +'\n')
             elif info[0] == 1:
                 btn = tk.Button(self.hist_box, text = '%s分享文件%s，点击下载'%(info[1], info[2]))
-                # self.hist_box.insert(tk.END, justify = tk.RIGHT)
+                btn.grid()
+                self.hist_box.insert(tk.END, btn)
         room.last_history = room.history_len
 
     def updateCurrent(self):
@@ -154,7 +155,8 @@ class UI(tk.Frame):
                 self.hist_box.insert(tk.END, info[1]+':'+info[2] +'\n')
             elif info[0] == 1:
                 btn = tk.Button(self.hist_box, text = '%s分享文件%s，点击下载'%(info[1], info[2]))
-                # self.hist_box.insert(tk.END, justify = tk.RIGHT)
+                self.hist_box.insert(tk.END, btn)
+                btn.grid()
         self.curRoom.last_history = self.curRoom.history_len
 
     def initLayout(self):
