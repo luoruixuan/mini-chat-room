@@ -38,26 +38,8 @@ class Room:
             self.history.append(data['user_name']+": "+data['message'])
             self.history_len += 1
         elif data['type'] == 'remindFile':
-            self.history.append('收到了来自%s文件的文件%s,要下载吗'%(data['user_name'], data['file_name']))
+            self.history.append('收到了来自%s的文件<%s>,要下载吗'%(data['user_name'], data['file_name']))
             self.history_len += 1
-
-class Friend:
-    def __init__(self):
-        self.name = None
-        self.id = None
-        self.history  = []  #存储与该朋友的历史信息
-        self.history_len = 0
-        self.last_history = -1
-
-    def set(self, name, id):
-        self.name = name
-        self.id = id
-
-    def update(self, data):
-        if data['type'] == 'friendMessage':
-            self.history.append(data['user_name']+": "+data['message'])
-            self.history_len += 1
-
 
 class UI(tk.Frame):
     def __init__(self, sock):
@@ -257,9 +239,9 @@ class UI(tk.Frame):
                 csock.send(pData)
             f.close()
 
-            curPos.history.append(self.name + ': ' + '文件发送成功:)\n')
+            curPos.history.append(self.name + ': ' + '文件发送成功:)')
         except:
-            curPos.history.append(self.name+': '+'文件发送失败:(\n')
+            curPos.history.append(self.name+': '+'文件发送失败:(')
         csock.close()
         self.curPos.history_len += 1
         self.updateCurrent()
