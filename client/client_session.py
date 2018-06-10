@@ -40,6 +40,8 @@ class ClientSession:
                 res=self.AESinstance.AESDecrypt(res)
             else:
                 res = bytes.decode(res, encoding='utf-8')
+            if res=='':
+                continue
             # by lanying
             data.append(res)
             if res.endswith('\r\n'):
@@ -85,7 +87,7 @@ class ClientSession:
         if self.AESKey_is_init:
             sendmsg=self.AESinstance.AESEncript(s)
             self.socket.send(sendmsg)
-            # self.socket.send('\r\n'.encode('utf-8'))
+            self.socket.send('\r\n'.encode('utf-8'))
         else:
             self.socket.send((s+'\r\n').encode('utf-8'))
         # by lanying
