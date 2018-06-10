@@ -36,6 +36,7 @@ class ChatSession(asynchat.async_chat):
         self.entered_rooms = {}  # 保存当前用户所在房间， {"房间名": room对象}
         self.room_judger = RoomJudger()  # 用于判断应该去哪个房间执行命令
 
+        self.enter(self.server.hall)  # 创建session之后就进入大厅
         # by lanying 
         self.AESKey_is_init = False
         self.RSAinstance = RSAmessage()
@@ -44,7 +45,6 @@ class ChatSession(asynchat.async_chat):
         send_json = json.dumps(send_dict)
         self.SecurityPush((send_json + '\r\n').encode('utf-8'))
         # by lanying
-        self.enter(self.server.hall)  # 创建session之后就进入大厅
 
     def enter(self, room):
         '''

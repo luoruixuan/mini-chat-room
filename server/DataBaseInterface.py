@@ -484,6 +484,27 @@ class GroupMessages:
         self.group = ChatGroup(username)
         state = self.group.OpenGroup(groupname)
 
+    def get_history(self, groupname):
+        conn = sqlite3.connect('test.db')
+        cursor = conn.cursor()
+        # 首先获取一个userid -> username的映射
+        cursor.execute('select Userid, Username from Users_User_Info')
+        rows = cursor.fetchall()
+        user_dict = {}
+        for row in rows:
+            user_dict[row[0]] = row[1]
+        cursor.execute('select From_uid, To_gid, Body, Date_commit from Users_Messages where To_gid=%d' %
+                       self.group.groupid)
+        rows = cursor.fetchall()  # [(1, 0, 'fdsfds', '2010-01-01 12:00:00'), (1, 0, '1', '2011-01-01 12:00:00')]
+        # 组装成字典
+        res = []
+        for row in rows:
+            res_dict = dict(group_name=groupname, usr_name=user_dict[row[0]], message=row[2], date_time=row[3])
+            res.append(res_dict)
+        cursor.close()
+        conn.close()
+        return res
+
     def addMessage(self, promulgator, message, date_time):
         # 参数：promulgator:发布消息的用户，message：str消息
         conn = sqlite3.connect('test.db')

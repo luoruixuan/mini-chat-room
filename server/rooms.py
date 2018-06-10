@@ -5,6 +5,7 @@ import traceback
 import datetime
 import DataBaseInterface
 from project_logger import logger
+from secure_transmission import *
 
 
 class BadCmd(Exception):
@@ -177,6 +178,22 @@ class Hall(Room):
         else:
             # 由于可以同时在多个房间里，因此这句没用了
             session.SecurityPush((ServerResponse('back to hall') + '\r\n').encode('utf-8'))
+
+    def do_init_AES_Key(self, session, cmd_dict):
+        '''
+        初始化AES密钥
+        # 接收AES密钥
+        {'type': 'init',
+         'msg': 'AESKey',
+         'Key': ''
+        }
+        :param session:
+        :param cmd_dict:
+        :return:
+        '''
+        session.AESinstance = AESmessage(cmd_dict['Key'])
+        session.AESKey_is_init = True
+        pass
 
     def do_login(self, session, cmd_dict):
         '''
@@ -380,7 +397,8 @@ class GroupRoom(Room):
         # 获取某个群内的文件
         info_dict['files'] = group_query.query_files()
         # 获取历史消息
-        info_dict['history'] = group_query.query_history()
+        message_query = DataBaseInterface.GroupMessages(session.usr_name, self.room_name)
+        info_dict['history'] = message_query.get_history(self.room_name).copy()
 
         session.SecurityPush((ServerResponse('Succeed.', status=True, info=info_dict) + '\r\n').encode('utf-8'))
 
