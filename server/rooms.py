@@ -193,7 +193,7 @@ class Hall(Room):
         '''
         session.AESinstance = AESmessage(cmd_dict['Key'])
         session.AESKey_is_init = True
-        pass
+        session.push((ServerResponse('AC_AESKey') + '\r\n').encode('utf-8'))
 
     def do_login(self, session, cmd_dict):
         '''
@@ -349,6 +349,52 @@ class Hall(Room):
         :return:
         '''
         session.SecurityPush((ServerResponse('not implemented', False) + '\r\n').encode('utf-8'))
+        pass
+
+    def do_add_friend(self, session, cmd_dict):
+        '''
+        添加好友
+        :param session:
+        :param cmd_dict:
+        :return:
+        '''
+
+        pass
+
+    def do_get_verification_message(self, session, cmd_dict):
+        '''
+
+        :param session:
+        :param cmd_dict:
+        :return:
+        '''
+        pass
+
+    def do_add_friend_response(self, session, cmd_dict):
+        '''
+
+        :param session:
+        :param cmd_dict:
+        :return:
+        '''
+        pass
+
+    def do_get_group_list(self, session, cmd_dict):
+        '''
+
+        :param session:
+        :param cmd_dict:
+        :return:
+        '''
+        pass
+
+    def do_get_friend_list(self, session, cmd_dict):
+        '''
+
+        :param session:
+        :param cmd_dict:
+        :return:
+        '''
         pass
 
 
@@ -523,3 +569,12 @@ class GroupRoom(Room):
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(session, broad_json)
         session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+
+    def do_invite_friend(self, session, cmd_dict):
+        '''
+
+        :param session:
+        :param cmd_dict:
+        :return:
+        '''
+        pass

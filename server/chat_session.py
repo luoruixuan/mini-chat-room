@@ -121,6 +121,8 @@ class RoomJudger(object):
         '''
         try:
             cmd_dict = json.loads(line, encoding='utf-8')
+            if cmd_dict['type'] == 'init':
+                return 'Hall'
             if cmd_dict['type'] == 'command':
                 if cmd_dict['msg'] in self.hall_commands:
                     return 'Hall'
