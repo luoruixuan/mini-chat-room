@@ -4,19 +4,31 @@ from Crypto.Cipher import AES
 from Crypto.Cipher import PKCS1_v1_5 as Cipher_pkcs1_v1_5
 from Crypto.Signature import PKCS1_v1_5 as Signature_pkcs1_v1_5
 from Crypto.PublicKey import RSA
+from binascii import b2a_hex, a2b_hex
 import base64
 import socket
+import string
 
-class AESmessage:
+class AESmessage(object):
     def __init__(self,password):
         #key必须是16(24,32)的倍数,这里16足够
+        length = 16
+        count = len(password)
+        add = length - (count % length)
+        password=password + ('\0' * add)
         self.key=password[:16]
 
     def AESEncript(self,msg):
         #return a string
+        length = 16
+        count = len(msg)
+        add = length - (count % length)
+        msg=msg + ('\0' * add)
         iv=Random.new().read(AES.block_size)
         cipher=AES.new(self.key,AES.MODE_CFB,iv)
         data=iv+cipher.encrypt(msg)
+        #因为AES加密时候得到的字符串不一定是ascii字符集的，输出到终端或者保存时候可能存在问题
+        #所以这里统一把加密后的字符串转化为16进制字符串
         return data
 
     def AESDecrypt(self,msg):
@@ -24,7 +36,8 @@ class AESmessage:
         #return a string
         iv=msg[:16]
         cipher=AES.new(self.key, AES.MODE_CFB,iv)
-        return (cipher.decrypt(msg[16:])).decode()
+        data=(cipher.decrypt(msg[16:])).decode()
+        return data.rstrip('\0')
     
 
 class RSAmessage:
@@ -59,8 +72,6 @@ class RSAmessage:
 # 服务器生成RSA公钥、私钥
 # 客户端连接后服务端发送公钥到客户端
 # 客户端生成DES密钥
-# 客户端用RSA公钥加密AES密钥后发送到服务端
-# 服务端用RSA私钥解密AES
-# 开始用AES密钥加密通信
-
-  
+# 客户端用RSA公钥加密DES密钥后发送到服务端
+# 服务端用RSA私钥解密DES
+# 开始用DES密钥加密通信
