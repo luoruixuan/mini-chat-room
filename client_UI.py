@@ -167,7 +167,8 @@ class UI(tk.Frame):
         self.search_box = tk.Label(self.frame0, text = '             ', bg = '#cccccc',font = font.Font(family='楷体', size = 17))
         self.search_box.grid(row = 0, column = 0)
         self.search_box.columnconfigure(0, weight = 3)
-        self.create_btn = tk.Button(self.frame0, text = '╋', width = 2, height = 1,bg = '#cccccc', font = font.Font(family='楷体', size = 17) )
+        self.create_btn = tk.Button(self.frame0, text = '╋', width = 2, height = 1,bg = '#cccccc', font = font.Font(family='楷体', size = 17),
+                                    command = self.createRoom)
         self.create_btn.grid(row = 0, column = 1)
         self.create_btn.columnconfigure(1, weight = 1)
 
@@ -225,6 +226,7 @@ class UI(tk.Frame):
         # 在process函数中等候
 
     def processShareFile(self, host, port, file_name, curPos):
+        # 客户端新开的向服务器传输文件的线程
         try:
             csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             csock.connect((host, port))
@@ -260,7 +262,8 @@ class UI(tk.Frame):
         except:
             return False
 
-    # def createRoom(self):
+    def createRoom(self):
+        pass
 
 host = '127.0.0.1'
 port = 8000

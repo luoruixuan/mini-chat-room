@@ -125,8 +125,6 @@ class User:
         csock.close()
         releasePort(port) #释放port
 
-
-
     def sendMessageToRoom(self, data, room):
         data['user_id'] = self.id           #让其他人知道，该信息是谁发的
         data['user_name'] = self.name
