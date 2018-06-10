@@ -123,8 +123,8 @@ class RoomJudger(object):
             cmd_dict = json.loads(line, encoding='utf-8')
             if cmd_dict['type'] == 'command':
                 if cmd_dict['msg'] in self.hall_commands:
-                    return 'hall'
+                    return 'Hall'
             return cmd_dict['group_name']
         except Exception as err:
             logger.error("cannot get room_name: \n%s\n%s", line, traceback.format_exc())
-            return 'hall'  # 未知的就发往hall去处理
+            return 'Hall'  # 未知的就发往hall去处理
