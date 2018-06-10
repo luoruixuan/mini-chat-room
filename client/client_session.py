@@ -40,6 +40,8 @@ class ClientSession:
                 res=self.AESinstance.AESDecrypt(res)
             else:
                 res = bytes.decode(res, encoding='utf-8')
+            if res=='':
+                continue
             # by lanying
             data.append(res)
             if res.endswith('\r\n'):
