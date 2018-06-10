@@ -411,6 +411,7 @@ class Hall(Room):
         '''
         usr_name = cmd_dict['usr_name']
         g_list = list(self.server.active_users[usr_name].entered_rooms.keys())
+        g_list.remove('Hall')
         session.SecurityPush((ServerResponse('Succeed.', info=g_list) + '\r\n').encode('utf-8'))
 
     def do_get_friend_list(self, session, cmd_dict):
