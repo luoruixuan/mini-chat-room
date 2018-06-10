@@ -344,7 +344,7 @@ class Room:
             rn = lb.get(lb.curselection())
         except:
             return
-        self.UI.session.enter_chat_room_request(self.usr_name, rn, '')
+        #self.UI.session.enter_chat_room_request(self.usr_name, rn, '')
         self.flush_room(rn)
 
     def click_friend(self):
@@ -432,6 +432,7 @@ class Room:
             messagebox.showinfo('Succeed', msg)
             #self.flush_list()
             self.room_list.insert(END, room_name)
+            self.get_room_info(room_name)
             tl.destroy()
         else:
             messagebox.showerror('Fail', msg)
