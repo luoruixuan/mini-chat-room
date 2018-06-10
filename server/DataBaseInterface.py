@@ -304,7 +304,7 @@ class UserFriends:
         conn = sqlite3.connect('test.db')
         cursor = conn.cursor()
         sql = 'Select distinct Username \
-            from Users_User_Info T1,(Select * From Users_Friends (Where Userid1=%d or Userid2=%d)\
+            from Users_User_Info T1,(Select * From Users_Friends Where (Userid1=%d or Userid2=%d)\
              and established=1 \
             )T2 Where T1.Userid=T2.Userid1 or T1.Userid=T2.Userid2'
         cursor.execute(sql % (uid1, uid1))
