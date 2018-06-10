@@ -265,7 +265,7 @@ class Room:
         but_cl = Button(row, text='清空历史', font=self.ft, command=lambda:self.clear_msg())
         but_cl.place(relx=0.76, rely=0.3, relwidth=0.1, relheight=0.6)
 
-        but_sf = Button(row, text = '文件', font = self.ft, command=lambda:self.share_file(room_name))
+        but_sf = Button(row, text = '文件', font = self.ft, command=lambda:self.share_file(self.room_name))
         but_sf.place(relx=0.88, rely=0.3, relwidth=0.1, relheight=0.6)
         row.place(relx=0.3, rely=0.8, relwidth=0.7, relheight=0.2)
 
