@@ -1,5 +1,5 @@
 --
--- 由SQLiteStudio v3.1.1 产生的文件 周六 6月 9 19:40:18 2018
+-- 由SQLiteStudio v3.1.1 产生的文件 周日 6月 10 04:21:57 2018
 --
 -- 文本编码：UTF-8
 --
@@ -98,6 +98,17 @@ INSERT INTO Users_Chatgroup (
                                 1
                             );
 
+INSERT INTO Users_Chatgroup (
+                                Groupid,
+                                Groupname,
+                                GroupOwner
+                            )
+                            VALUES (
+                                2,
+                                't2',
+                                1
+                            );
+
 
 -- 表：Users_ChatgroupMem
 DROP TABLE IF EXISTS Users_ChatgroupMem;
@@ -146,13 +157,25 @@ INSERT INTO Users_ChatgroupMem (
                                    0
                                );
 
+INSERT INTO Users_ChatgroupMem (
+                                   Memid,
+                                   Groupid
+                               )
+                               VALUES (
+                                   1,
+                                   2
+                               );
+
 
 -- 表：Users_Friends
 DROP TABLE IF EXISTS Users_Friends;
 
 CREATE TABLE Users_Friends (
-    Userid1 INTEGER NOT NULL,
-    Userid2 INTEGER NOT NULL,
+    Userid1              INTEGER       NOT NULL,
+    Userid2              INTEGER       NOT NULL,
+    established          INTEGER       NOT NULL
+                                       DEFAULT (0),
+    verification_message VARCHAR (100),
     PRIMARY KEY (
         Userid1,
         userid2
@@ -166,6 +189,19 @@ CREATE TABLE Users_Friends (
     )
     REFERENCES Users_User_Info (Userid) 
 );
+
+INSERT INTO Users_Friends (
+                              Userid1,
+                              Userid2,
+                              established,
+                              verification_message
+                          )
+                          VALUES (
+                              0,
+                              1,
+                              0,
+                              'hello'
+                          );
 
 
 -- 表：Users_Messages
@@ -184,19 +220,35 @@ CREATE TABLE Users_Messages (
     REFERENCES Users_Chatgroup (Groupid) 
 );
 
+INSERT INTO Users_Messages (
+                               Messageid,
+                               From_uid,
+                               To_gid,
+                               Body,
+                               Date_commit
+                           )
+                           VALUES (
+                               1,
+                               1,
+                               0,
+                               'fdsfds',
+                               '2010-01-01 12:00:00'
+                           );
 
--- 表：Users_Online
-DROP TABLE IF EXISTS Users_Online;
-
-CREATE TABLE Users_Online (
-    Userid   INTEGER      NOT NULL
-                          PRIMARY KEY,
-    IP_addrr VARCHAR (20),
-    FOREIGN KEY (
-        Userid
-    )
-    REFERENCES Users_User_Info (Userid) 
-);
+INSERT INTO Users_Messages (
+                               Messageid,
+                               From_uid,
+                               To_gid,
+                               Body,
+                               Date_commit
+                           )
+                           VALUES (
+                               2,
+                               1,
+                               0,
+                               '1',
+                               '2011-01-01 12:00:00'
+                           );
 
 
 -- 表：Users_User_Info
