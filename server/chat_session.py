@@ -67,6 +67,8 @@ class ChatSession(asynchat.async_chat):
         '''
         # by lanying
         if self.AESKey_is_init:
+            if data == '\r\n'.encode('utf-8'):
+                return # 不解密终止符
             data = self.AESinstance.AESDecrypt(data)
             self.data.append(data)
         else:
