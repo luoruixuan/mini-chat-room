@@ -215,11 +215,14 @@ class Hall(Room):
 
         if not name:
             session.SecurityPush((ServerResponse('usr_name empty', False) + '\r\n').encode('utf-8'))
-        elif name in self.server.active_users:
-            # 这里是阻止同一个用户重复登录，因此检查用的是active_users
-            # self.server.active_users[name].do_logout(self.server.active_users[name], dict)
-            session.SecurityPush((ServerResponse('usr_name exist', False) + '\r\n').encode('utf-8'))
         else:
+            if name in self.server.active_users:
+                # 这里是阻止同一个用户重复登录，因此检查用的是active_users
+                # self.server.active_users[name].do_logout(self.server.active_users[name], dict)
+                # session.SecurityPush((ServerResponse('usr already login', False) + '\r\n').encode('utf-8'))
+                # 挤掉上次的登陆session
+                last_session = self.server.active_users[name]
+                self.do_logout(last_session, dict())
             # 去服务器用户列表中检查
             matched = False
             for up_tuple in self.server.all_users:
@@ -457,6 +460,8 @@ class GroupRoom(Room):
         :return:
         '''
         self.sessions.append(session)
+        if not session.usr_name in self.users:
+            self.users.append(session.usr_name)
 
     def do_desc_group(self, session, cmd_dict):
         '''
@@ -611,7 +616,7 @@ class GroupRoom(Room):
         usr_name = cmd_dict['usr_name']
         friend_name = cmd_dict['friend_name']
         group_name = cmd_dict['group_name']
-        friend_session = self.server.active_users.get(friend_name, default=None)
+        friend_session = self.server.active_users.get(friend_name, None)
         if friend_session != None:
             friend_session.enter(self)
         # 告知其他用户 person_in
@@ -619,6 +624,8 @@ class GroupRoom(Room):
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(friend_session, broad_json)
         # 修改数据库
+        if not friend_name in self.users:
+            self.users.append(friend_name)
         group_query = DataBaseInterface.ChatGroup(usr_name)
         group_query.OpenGroup(self.room_name)
         group_query.addGroupMem(friend_name)
