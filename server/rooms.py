@@ -537,20 +537,25 @@ class GroupRoom(Room):
             group_query.removeMem(name)
             session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
         elif name == self.creator and name != friend_name:
-            friend_session = self.server.active_users[friend_name]
+            try:
+                friend_session = self.server.active_users[friend_name]
+            except KeyError as err:
+                friend_session = None
             # 群主踢人
             broad_dict = dict(type='usr_removed', group_name=self.room_name,
                               msg='You are removed from ' + self.room_name)
             # 只向被踢的人发
             broad_json = json.dumps(broad_dict, ensure_ascii=False)
-            friend_session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+            if friend_session is not None:
+                friend_session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
             # 告诉别人这个人被踢了
             broad_dict = dict(type='person_out', group_name=self.room_name, usr_name=friend_name)
             broad_json = json.dumps(broad_dict, ensure_ascii=False)
             self.broadcast(friend_session, broad_json)
             # 删除内存记录
-            del friend_session.entered_rooms[self.room_name]
-            self.remove_session(friend_session)
+            if friend_session is not None:
+                del friend_session.entered_rooms[self.room_name]
+                self.remove_session(friend_session)
             self.users.remove(friend_name)
             # 删除数据库记录
             group_query = DataBaseInterface.ChatGroup(name)
