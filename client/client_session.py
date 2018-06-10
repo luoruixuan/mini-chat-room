@@ -126,14 +126,6 @@ class ClientSession:
         status, msg = res['status'], res['msg']
         return status, msg
 
-    def get_friend_list(self, usr_name):
-        request = {'type':'command',
-                   'msg':'get_friend_list',
-                   'usr_name': usr_name}
-        res = self.send(request)
-        status, msg = res['status'], res['msg']
-        return status, msg
-
     def get_chat_rooms(self, usr_name):
         request = {'type':'command',
                    'msg':'get_chat_rooms',
