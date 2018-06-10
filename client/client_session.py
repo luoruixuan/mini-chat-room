@@ -83,7 +83,7 @@ class ClientSession:
         print('Send: '+s)
         # by lanying
         if self.AESKey_is_init:
-            sendmsg=self.AESinstance.AESEncript(s.encode('utf-8'))
+            sendmsg=self.AESinstance.AESEncript(s)
             self.socket.send(sendmsg)
             # self.socket.send('\r\n'.encode('utf-8'))
         else:
