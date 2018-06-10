@@ -358,44 +358,73 @@ class Hall(Room):
         :param cmd_dict:
         :return:
         '''
-
-        pass
+        # 在数据库中记录一条好友记录（id1, id2, 0, verification_message）
+        # 确认的好友记录变为(id1, id2, 1, verification_message)
+        # 拒绝的好友记录变为(id1, id2, -1, verification_message)
+        # 表示id1向id2的请求
+        usr_name = cmd_dict['usr_name']
+        friend_name = cmd_dict['friend_name']
+        verification_message = cmd_dict['verification_message']
+        friend_query = DataBaseInterface.UserFriends(usr_name)
+        friend_query.add(friend_name, verification_message)
+        session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_get_verification_message(self, session, cmd_dict):
         '''
-
+        查看收到的好友请求记录
         :param session:
         :param cmd_dict:
         :return:
         '''
+        usr_name = cmd_dict['usr_name']
+        friend_query = DataBaseInterface.UserFriends(usr_name)
+        # {'wy':'hello', 'ly':'hi', 'qwt':'Hi'}
+        info_dict = friend_query.query_request().copy()
+        session.SecurityPush((ServerResponse('Succeed.', info=info_dict) + '\r\n').encode('utf-8'))
         pass
 
     def do_add_friend_response(self, session, cmd_dict):
         '''
-
+        接受或拒绝请求
         :param session:
         :param cmd_dict:
         :return:
         '''
-        pass
+        usr_name = cmd_dict['usr_name']
+        friend_name = cmd_dict['friend_name']
+        accept = cmd_dict['accept']
+        if accept:
+            friend_query = DataBaseInterface.UserFriends(usr_name)
+            friend_query.accept(friend_name)
+            session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+        else:
+            friend_query = DataBaseInterface.UserFriends(usr_name)
+            friend_query.reject(friend_name)
+            session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_get_group_list(self, session, cmd_dict):
         '''
-
+        查询用户所在群列表
         :param session:
         :param cmd_dict:
         :return:
         '''
-        pass
+        usr_name = cmd_dict['usr_name']
+        g_list = self.server.active_users[usr_name].entered_rooms.keys()
+        session.SecurityPush((ServerResponse('Succeed.', info=g_list) + '\r\n').encode('utf-8'))
 
     def do_get_friend_list(self, session, cmd_dict):
         '''
-
+        查询用户好友列表
         :param session:
         :param cmd_dict:
         :return:
         '''
-        pass
+        usr_name = cmd_dict['usr_name']
+        friend_query = DataBaseInterface.UserFriends(usr_name)
+        friend_list = []
+        friend_query.queryFriendList(friend_list)
+        session.SecurityPush((ServerResponse('Succeed.', info=friend_list) + '\r\n').encode('utf-8'))
 
 
 class GroupRoom(Room):
@@ -424,9 +453,6 @@ class GroupRoom(Room):
         :return:
         '''
         self.sessions.append(session)
-        # broad_dict = dict(type='person_in', group_name=self.room_name, usr_name=session.usr_name)
-        # broad_json = json.dumps(broad_dict, ensure_ascii=False)
-        # self.broadcast(session, broad_json)
 
     def do_desc_group(self, session, cmd_dict):
         '''
@@ -441,7 +467,7 @@ class GroupRoom(Room):
         group_query = DataBaseInterface.ChatGroup(session.usr_name)
         info_dict['members'] = self.users.copy()
         # 获取某个群内的文件
-        info_dict['files'] = group_query.query_files()
+        # info_dict['files'] = group_query.query_files()
         # 获取历史消息
         message_query = DataBaseInterface.GroupMessages(session.usr_name, self.room_name)
         info_dict['history'] = message_query.get_history(self.room_name).copy()
@@ -572,9 +598,24 @@ class GroupRoom(Room):
 
     def do_invite_friend(self, session, cmd_dict):
         '''
-
+        拉好友进群，如果在线，就将对方的session拉进来
+        如果不在线，就只加到数据库里
         :param session:
         :param cmd_dict:
         :return:
         '''
-        pass
+        usr_name = cmd_dict['usr_name']
+        friend_name = cmd_dict['friend_name']
+        group_name = cmd_dict['group_name']
+        friend_session = self.server.active_users.get(friend_name, default=None)
+        if friend_session != None:
+            friend_session.enter(self)
+        # 告知其他用户 person_in
+        broad_dict = dict(type='person_in', group_name=self.room_name, usr_name=friend_name)
+        broad_json = json.dumps(broad_dict, ensure_ascii=False)
+        self.broadcast(friend_session, broad_json)
+        # 修改数据库
+        group_query = DataBaseInterface.ChatGroup(usr_name)
+        group_query.OpenGroup(self.room_name)
+        group_query.addGroupMem(friend_name)
+        session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))

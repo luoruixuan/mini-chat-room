@@ -207,7 +207,7 @@ class UserFriends:
     def __init__(self, username):
         self.username = username
 
-    def add(self, friendname):
+    def add(self, friendname, verification_message):
         # 返回值：0添加成功，-1：这个friend用户不存在
         Uquery = UserOperations()
         uid1 = Uquery.query(username=self.username, para=1)
@@ -217,12 +217,63 @@ class UserFriends:
             return state
         conn = sqlite3.connect('test.db')
         cursor = conn.cursor()
-        sql = 'INSERT INTO Users_Friends(Userid1,Userid2) Values(%d,%d)'
+        sql = 'INSERT INTO Users_Friends(Userid1,Userid2,established,' \
+              'verification_message) Values(%d,%d,0,"%s")'
         try:
-            cursor.execute(sql % (uid1, uid2))
+            cursor.execute(sql % (uid1, uid2, verification_message))
             conn.commit()
         except:
             conn.rollback()
+        conn.close()
+        return 0
+
+    def query_request(self):
+        conn = sqlite3.connect('test.db')
+        cursor = conn.cursor()
+        # 首先获取一个userid -> username的映射
+        cursor.execute('select Userid, Username from Users_User_Info')
+        rows = cursor.fetchall()
+        user_dict = {}
+        for row in rows:
+            user_dict[row[0]] = row[1]
+            if self.username == row[1]:
+                self.userid = row[0]
+        cursor.execute('''select Userid1, Userid2, verification_message from Users_Friends 
+        where Userid2=%d and established=0''' %
+                       self.userid)
+        rows = cursor.fetchall()
+        res = {}
+        for row in rows:
+            res[user_dict[row[0]]] = row[2]
+        cursor.close()
+        conn.close()
+        return res
+
+    def accept(self, friendname):
+        Uquery = UserOperations()
+        uid1 = Uquery.query(username=friendname, para=1)
+        uid2 = Uquery.query(username=self.username, para=1)
+        if uid2 == -1:
+            state = -1
+            return state
+        conn = sqlite3.connect('test.db')
+        cursor = conn.cursor()
+        cursor.execute('update Users_Friends set established=1 where Userid1=%d and Userid2=%d' % (uid1, uid2))
+        conn.commit()
+        conn.close()
+        return 0
+
+    def reject(self, friendname):
+        Uquery = UserOperations()
+        uid1 = Uquery.query(username=friendname, para=1)
+        uid2 = Uquery.query(username=self.username, para=1)
+        if uid2 == -1:
+            state = -1
+            return state
+        conn = sqlite3.connect('test.db')
+        cursor = conn.cursor()
+        cursor.execute('update Users_Friends set established=-1 where Userid1=%d and Userid2=%d' % (uid1, uid2))
+        conn.commit()
         conn.close()
         return 0
 
@@ -253,8 +304,9 @@ class UserFriends:
         conn = sqlite3.connect('test.db')
         cursor = conn.cursor()
         sql = 'Select distinct Username \
-            from Users_User_Info T1,(Select * From Users_Friends Where Userid1=%d or Userid2=%d)T2\
-            Where T1.Userid=T2.Userid1 or T1.Userid=T2.Userid2'
+            from Users_User_Info T1,(Select * From Users_Friends (Where Userid1=%d or Userid2=%d)\
+             and established=1 \
+            )T2Where T1.Userid=T2.Userid1 or T1.Userid=T2.Userid2'
         cursor.execute(sql % (uid1, uid1))
         results = cursor.fetchall()
         for row in results:
