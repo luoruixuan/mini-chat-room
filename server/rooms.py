@@ -497,18 +497,11 @@ class GroupRoom(Room):
         session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
     def do_file_message(self, session, file_message_dict):
+        server_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         broad_dict = dict(type='person_share_file', group_name=self.room_name,
                           usr_name=session.usr_name, file_name=file_message_dict['file_name'],
-                          file_content=file_message_dict['file_content'])
+                          file_content=file_message_dict['file_content'],
+                          date_time=server_time)
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(session, broad_json)
         session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
-
-
-class SingleRoom(Room):
-    '''
-    一对一聊天
-    :param Room:
-    :return:
-    '''
-    pass
