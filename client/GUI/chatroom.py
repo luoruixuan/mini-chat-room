@@ -77,6 +77,9 @@ class ChatroomUI:
         elif js['type'] == 'person_share_file':
             room_name = js['group_name']
             self.main_part.get_file(room_name, js)
+        elif js['type'] == 'usr_removed':
+            room_name = js['group_name']
+            self.main_part.usr_removed(room_name)
 
     def logout(self):
         self.tk.destroy()
@@ -587,6 +590,14 @@ class Room:
             messagebox.showerror('Fail', msg)
             return
         lst = msg
+        # 为所有房间获取信息，提前缓存防止收到消息时出错
+        for room_name in lst:
+            if not room_name in self.all_rooms:
+                status, info = self.UI.session.get_room_info(self.usr_name, room_name)
+                if not status:
+                    messagebox.showerror('Fail', info)
+                    continue
+                self.all_rooms[room_name] = info
         #lst = ['1', '2', '3', '4']
         for n in lst:
             self.room_list.insert(END, n)
@@ -617,8 +628,8 @@ class Room:
                 return
             self.all_rooms[room_name] = info
             # debug
-            info['files']=['a.txt', 'b.jpg']
-            info['history']='xxx: 123'
+            #info['files']=['a.txt', 'b.jpg']
+            #info['history']='xxx: 123'
         self.room_name = room_name
         self.RN.configure(text=txt)
         info = self.all_rooms[room_name]
@@ -725,6 +736,19 @@ class Room:
             print('No name %s!\n'%name)
         if room_name == self.room_name:
             self.flush_member(info)
+    # 用户被移出群
+    def usr_removed(self, room_name):
+        self.all_rooms.pop(room_name)
+        i = 0
+        while True:
+            s = self.room_list.get((i,))
+            if s=='':
+                break
+            if s==room_name:
+                self.room_list.delete(i,i)
+                break
+            i+=1
+            
 
     def leave(self, room_name):
         self.tl.destroy()
