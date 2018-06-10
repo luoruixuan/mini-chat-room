@@ -4,6 +4,7 @@ import sys
 import os
 sys.path.append('..')
 from client_session import *
+import datetime
 
 class ChatroomUI:
     def __init__(self, session, usr_name, **args):
@@ -67,7 +68,7 @@ class ChatroomUI:
         print('&')
         if js['type'] == 'person_speak':
             room_name = js['group_name']
-            self.main_part.recv_msg(room_name, js['usr_name']+': '+js['message'])
+            self.main_part.recv_msg(room_name, js['date_time'] + '\n' + js['usr_name']+': '+js['message'])
         elif js['type'] == 'person_in':
             room_name = js['group_name']
             self.main_part.person_in(room_name, js['usr_name'])
@@ -579,10 +580,26 @@ class Room:
         if not status:
             messagebox.showerror('Fail', msg)
             return
+        if self.usr_name == s:
+            self.room_name = 'Hall'
+            self.RN.configure(text='Room name: Hall')
+            self.clear_msg()
         #print('kick: '+s)
 
     def clear_input_box(self):
         self.input_box.delete(0.0,END)
+
+    def get_room_info(self, room_name):
+        if not room_name in self.all_rooms:
+            status, info = self.UI.session.get_room_info(self.usr_name, room_name)
+            if not status:
+                messagebox.showerror('Fail', info)
+                return
+            self.all_rooms[room_name] = info
+            tmp = ''
+            for msg in info['history']:
+                tmp = '%s%s\n%s: %s\n' % (tmp, msg['date_time'], msg['usr_name'], msg['message'])
+            info['history'] = tmp
 
     def flush_list(self):
         status, msg = self.UI.session.get_group_list(self.usr_name)
@@ -592,12 +609,8 @@ class Room:
         lst = msg
         # 为所有房间获取信息，提前缓存防止收到消息时出错
         for room_name in lst:
-            if not room_name in self.all_rooms:
-                status, info = self.UI.session.get_room_info(self.usr_name, room_name)
-                if not status:
-                    messagebox.showerror('Fail', info)
-                    continue
-                self.all_rooms[room_name] = info
+            self.get_room_info(room_name)
+            
         #lst = ['1', '2', '3', '4']
         for n in lst:
             self.room_list.insert(END, n)
@@ -621,15 +634,7 @@ class Room:
             if u>v:
                 u,v = v,u
             room_name = '&%s&%s'%(u,v)
-        if not room_name in self.all_rooms:
-            status, info = self.UI.session.get_room_info(self.usr_name, room_name)
-            if not status:
-                messagebox.showerror('Fail', info)
-                return
-            self.all_rooms[room_name] = info
-            # debug
-            #info['files']=['a.txt', 'b.jpg']
-            #info['history']='xxx: 123'
+        self.get_room_info(room_name)
         self.room_name = room_name
         self.RN.configure(text=txt)
         info = self.all_rooms[room_name]
@@ -699,7 +704,7 @@ class Room:
             messagebox.showerror('Fail', 'Please enter a room first.')
             return
         msg = box.get(0.0, END)[:-1]
-        self.recv_msg(room_name, self.usr_name+': '+msg)
+        self.recv_msg(room_name, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'\n'+self.usr_name+': '+msg)
         status, msg = self.UI.session.send_msg(room_name, msg)
         if not status:
             messagebox.showerror('Fail', msg)

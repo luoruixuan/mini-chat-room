@@ -51,7 +51,8 @@ class ClientSession:
                     if js['msg']=='please login':
                         continue
                     elif js['msg']=='AC_AESKey':    # by lanying
-                        self.AESKey_is_init=True
+                        #self.AESKey_is_init=True
+                        pass
                     self.waiting = js
                 # by lanying
                 elif js['type']=='init':
