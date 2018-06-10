@@ -192,10 +192,31 @@ class Hall(Room):
         :return:
         '''
         if cmd_dict['msg']=='AESKey':
-            session.AESinstance.key=str(session.RSAinstance.RSADecrypt(cmd_dict['Key']),encoding='utf-8') 
+            session.AESinstance.key=str(session.RSAinstance.RSADecrypt(cmd_dict['Key']),encoding='utf-8')
             session.SecurityPush((ServerResponse(msg='AC_AESKey') + '\r\n').encode('utf-8'))
             session.AESKey_is_init=True
             session.set_terminator(session.AESinstance.AESEncript('\r\n'))
+
+    def do_register(self, session, cmd_dict):
+        '''
+        注册用户
+        :param session:
+        :param cmd_dict:
+        :return:
+        '''
+        usr_name = cmd_dict['usr_name']
+        password = cmd_dict['password']
+        for up_tuple in self.server.all_users:
+            if name == up_tuple[0]:
+                session.SecurityPush((ServerResponse('Usr_name exist.', False) + '\r\n').encode('utf-8'))
+                return
+        # 用户名不冲突
+        new_tuple = (usr_name, password)
+        self.server.all_users.append(new_tuple)
+        # 数据库中加入新用户
+        user_query = DataBaseInterface.UserOperations()
+        user_query.add(usr_name, password)
+        session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
 
     def do_login(self, session, cmd_dict):
