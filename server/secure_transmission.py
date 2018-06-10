@@ -34,6 +34,8 @@ class AESmessage(object):
     def AESDecrypt(self,msg):
         #msg必须是16的倍数
         #return a string
+        if len(msg)<16:
+            return ''
         iv=msg[:16]
         cipher=AES.new(self.key, AES.MODE_CFB,iv)
         data=(cipher.decrypt(msg[16:])).decode()
