@@ -496,13 +496,10 @@ class Room:
         
 
     def chat_room_setting(self):
-        if self.room_name == 'Hall':
+        if self.room_name == 'Hall' or self.room_name.startswith('&'):
             messagebox.showerror('Fail', 'Please enter a room first.')
             return
         info = self.all_rooms[self.room_name]
-        if self.usr_name != info['creator']:
-            messagebox.showerror('Fail', 'You are not the creator of the room.')
-            return
         tl = Toplevel(self.tk)
         tl.title('setting')
         width, height = 500, 400
@@ -548,7 +545,7 @@ class Room:
         lb.config(yscrollcommand=bar.set)
         bar.place(relx=0.90, rely=0.21, width=20, relheight=.78)
         lb.place(relx=0.0, rely=0.21, relwidth=0.9, relheight=.78)
-        lb.bind('<Double-Button-1>', lambda event:self.kick_person(lb, tl))
+        lb.bind('<Double-Button-1>', lambda event:self.kick_person(lb, tl, info['creator']))
     def invite_friend(self, lb, tl):
         if self.room_name.startswith('&') or self.room_name == 'Hall':
             messagebox.showerror('Fail', 'Please enter a room first.')
@@ -563,7 +560,7 @@ class Room:
             messagebox.showerror('Fail', msg)
             return
         #print('invite: '+s)
-    def kick_person(self, lb, tl):
+    def kick_person(self, lb, tl, creator):
         if self.room_name.startswith('&') or self.room_name == 'Hall':
             messagebox.showerror('Fail', 'Please enter a room first.')
             return
@@ -571,6 +568,9 @@ class Room:
             pl = lb.curselection()
             s = lb.get(pl)
         except:
+            return
+        if self.usr_name != creator and self.usr_name != s:
+            messagebox.showerror('Fail', 'You are not the creator of the room.')
             return
         status, msg = self.UI.session.remove_person(self.usr_name, s, self.room_name)
         if not status:
