@@ -4,6 +4,7 @@ import threading
 import json
 import struct
 import time
+import os
 
 GLOBAL_USER_ID = 0
 GLOBAL_ROOM_ID = 0
@@ -95,6 +96,40 @@ class User:
                     room.member[int(id)] = all_users[id].name
                     all_users[id].enterRoom(room)   #需要依次进入
                 all_rooms[GLOBAL_ROOM_ID - 1] = room
+            elif data_type == 'askFile':
+                fn = recv_data['file_name']
+                room = all_rooms[int(recv_data['room_id'])]
+                port = findAvaiPort()
+                send_data = {'type': 'sendFile', 'port': port, 'room_id': room.id}
+                send_data = json.dumps(send_data).encode('utf-8')
+                self.send(send_data)
+                t1 = threading.Thread(target=self.processSendFile, args=(host, port, room, fn))
+                t1.start()
+
+    def processSendFile(self, host, port, room, fn):
+        print('开始发送文件, port=', port)
+        fsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        fsock.bind((host, port))
+        fsock.listen(1)
+        csock, caddr = fsock.accept()
+
+        fdata = room.files[fn][1]
+        data_len = room.files[fn][0]
+        pre_data = struct.pack('128sl', fn.encode('utf-8'), data_len)
+        csock.send(pre_data)
+        cur_len = 0
+        once_len = int(data_len / 100)
+        once_len = max(1024, once_len)
+        once_len = min(once_len, 300000)
+        while cur_len < data_len:
+            if data_len - cur_len > once_len:
+                csock.sendall(fdata[cur_len:cur_len+once_len])
+                cur_len += once_len
+            else:
+                csock.sendall(fdata[cur_len:])
+                cur_len = data_len
+
+        releasePort(port)
 
     def processShareFile(self, host, port, room):
         # 为接收、发送文件开辟的线程
@@ -115,15 +150,20 @@ class User:
         once_len = int(file_size/100)
         once_len = max(1024, once_len)
         once_len = min(once_len, 300000)
-        while recv_len < file_size:
+        while recv_len != file_size:
             if file_size - recv_len > once_len:
                 recv_data += csock.recv(once_len)
-                recv_len += once_len
+                recv_len = len(recv_data)
             else:
                 recv_data += csock.recv(file_size - recv_len)
-                recv_len = file_size
-            print(recv_len)
-        room.files[file_name] = recv_data   # 将文件保存在room中，以备之后给其他用户传送
+                recv_len = len(recv_data)
+            print(recv_len, len(recv_data))
+        room.files[file_name] = (file_size, recv_data)   # 将文件保存在room中，以备之后给其他用户传送
+
+        print('当前目录：', os.getcwd(), '文件长度：', len(recv_data))
+        f = open(os.getcwd()+'\\___'+file_name, 'wb')
+        f.write(recv_data)
+        f.close()
 
         send_data = {'type':'remindFile'}
         send_data['user_id'] = self.id

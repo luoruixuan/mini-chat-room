@@ -54,6 +54,8 @@ class UI(tk.Frame):
         self.curRoom = None  #用户所在的位置（某个房间或用户）
         self.showRow = 0 # 左边展示的房间&朋友的
         self.shows = []
+        self.file_down_dir = os.getcwd()        #默认文件下载路径
+
 
     def recv(self):
         print('等候接收了')
@@ -110,6 +112,11 @@ class UI(tk.Frame):
                 port = recv_data['port']
                 t = threading.Thread(target=self.processShareFile, args=(host, port, self.file_name, self.curRoom))
                 t.start()
+            elif recv_data['type'] == 'sendFile':
+                port = recv_data['port']
+                room = self.rooms[recv_data['room_id']]
+                t = threading.Thread(target=self.processRecvFile, args=(host, port, room))
+                t.start()
             self.updateCurrent()
 
     def showRoom(self, room):
@@ -138,13 +145,13 @@ class UI(tk.Frame):
         else:
             self.name_label['text'] = self.curRoom.name
         self.hist_box.delete(0.0, tk.END)
+        self.file_box.delete(0, self.file_box.size())
         for info in room.history:
             if info[0] == 0:
                 self.hist_box.insert(tk.END, info[1]+':'+info[2] +'\n')
             elif info[0] == 1:
-                btn = tk.Button(self.hist_box, text = '%s分享文件%s，点击下载'%(info[1], info[2]))
-                btn.grid()
-                self.hist_box.insert(tk.END, btn)
+                self.file_box.insert(tk.END, '%s' % (info[2]))
+
         room.last_history = room.history_len
 
     def updateCurrent(self):
@@ -154,9 +161,7 @@ class UI(tk.Frame):
             if info[0] == 0:
                 self.hist_box.insert(tk.END, info[1]+':'+info[2] +'\n')
             elif info[0] == 1:
-                btn = tk.Button(self.hist_box, text = '%s分享文件%s，点击下载'%(info[1], info[2]))
-                self.hist_box.insert(tk.END, btn)
-                btn.grid()
+                self.file_box.insert(tk.END, '%s' % (info[2]))
         self.curRoom.last_history = self.curRoom.history_len
 
     def initLayout(self):
@@ -196,8 +201,13 @@ class UI(tk.Frame):
         self.room_set.grid(row = 0, column = 1)
         self.room_set.place(x = 520, y = 0)
 
-        self.hist_box = tk.Text(self.frame3, bg='#eeeeee', height = 20,font = font.Font(family='新宋', size = 13))
-        self.hist_box.grid()
+        self.hist_box = tk.Text(self.frame3, bg='#eeeeee', height = 20, width = 60, font = font.Font(family='新宋', size = 13))
+        self.hist_box.grid(row = 0, column = 0)
+        self.file_box = tk.Listbox(self.frame3, bg = '#eeeeee', height = 27, width = 28, font = font.Font(family='新宋', size = 10))
+        self.file_box.bind('<Double-Button-1>', lambda event:self.clickFile())
+        self.file_box.grid(row = 0, column = 1)
+        self.file_box.place(x = 400, y = 0)
+
 
         self.input_box = tk.Text(self.frame4, bg='#eeeeee',height = 6, font = font.Font(family='新宋', size = 13))
         self.input_box.grid()
@@ -216,6 +226,45 @@ class UI(tk.Frame):
         self.frame4.grid_propagate(0)
         self.frame5.grid_propagate(0)
         self.grid_propagate()
+
+    def clickFile(self):
+        room = self.curRoom
+        fn = self.file_box.get(self.file_box.curselection())
+        c = tk.Toplevel()
+        width, height = 300, 150
+        c.minsize(width=width, height=height)
+        c.maxsize(width=width, height=height)
+        f = font.Font(family='楷体', size = 15)
+        note = tk.Text(c, font = f,width = 30, height = 3)
+        note.insert(tk.END, '你确定要下载%s吗\n它将下载在目录%s下'%(fn, self.file_down_dir))
+        yes = tk.Button(c, text = '确定', font = f, command = lambda :downloadFile(fn, room))
+        no = tk.Button(c, text = '取消', font = f, command = lambda :cancel())
+
+        note.place(x = 0, y = 0)
+        yes.place(x = 140, y = 70)
+        no.place(x = 70, y = 70)
+
+        def cancel():
+            c.destroy()
+            return
+
+        def downloadFile(fn, room):
+            c.destroy()
+            self.downloadFile(fn, room)
+
+    def downloadFile(self, fn, room):
+        self.curRoom.history.append((0, self.name, '接收文件中...:)'))
+        self.curRoom.history_len += 1
+        self.updateCurrent()
+
+        send_data = {'type': 'askFile'}
+        send_data['room_id'] = room.id
+        send_data['file_name'] = fn
+        send_data = json.dumps(send_data).encode('utf-8')
+        self.sendInfo(send_data)
+
+        # 等待服务器回复
+        # （在process函数中处理回复）
 
     def clickRoomSet(self):
         # 朋友和群显示的不一样
@@ -287,6 +336,7 @@ class UI(tk.Frame):
         self.file_name = filedialog.askopenfilename()
         if not self.file_name:
             return
+        # self.file_name = 'D:\实验室\笔记.txt'
         self.curRoom.history.append((0, self.name, '文件发送中...:)'))
         self.curRoom.history_len += 1
         self.updateCurrent()
@@ -317,7 +367,7 @@ class UI(tk.Frame):
                 pData = f.read(once_len)
                 if not pData:
                     break
-                csock.send(pData)
+                csock.sendall(pData)
             f.close()
 
             curRoom.history.append((0, self.name, '文件发送成功:)'))
@@ -328,6 +378,44 @@ class UI(tk.Frame):
         self.updateCurrent()
 
         print('分享文件的线程结束了！')
+
+    def processRecvFile(self, host, port, room):
+        try:
+            csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            csock.connect((host, port))
+
+            pre_data_len = struct.calcsize('128sl')
+            pre_data = csock.recv(pre_data_len)
+            file_name, file_size = struct.unpack('128sl', pre_data)
+            file_name = file_name.decode('utf-8').strip('\00')
+
+            print('文件的长度为：', file_size)
+            recv_len = 0
+            recv_data = b''
+            # 每次发送和接收的缓冲区越大，文件传输越快
+            once_len = int(file_size/100)
+            once_len = max(1024, once_len)
+            once_len = min(once_len, 300000)
+            while recv_len != file_size:
+                if file_size - recv_len > once_len:
+                    recv_data += csock.recv(once_len)
+                    recv_len = len(recv_data)
+                else:
+                    recv_data += csock.recv(file_size - recv_len)
+                    recv_len = len(recv_data)
+                print(recv_len, len(recv_data))
+
+            f = open(self.file_down_dir+'\\'+file_name, 'wb')
+            f.write(recv_data)
+            f.close()
+            room.history.append((0, self.name, '文件接收成功:)'))
+        except:
+            room.history.append((0, self.name, '文件接收失败:('))
+
+        csock.close()
+        room.history_len += 1
+        if room == self.curRoom:
+            self.updateCurrent()
 
     def sendInfo(self, send_data):
         try:
