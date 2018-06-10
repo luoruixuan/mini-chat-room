@@ -191,9 +191,12 @@ class Hall(Room):
         :param cmd_dict:
         :return:
         '''
-        session.AESinstance = AESmessage(cmd_dict['Key'])
-        #session.AESKey_is_init = True
-        session.push((ServerResponse('AC_AESKey') + '\r\n').encode('utf-8'))
+        if cmd_dict['msg']=='AESKey':
+            session.AESinstance.key=str(session.RSAinstance.RSADecrypt(cmd_dict['Key']),encoding='utf-8') 
+            session.SecurityPush((ServerResponse(msg='AC_AESKey') + '\r\n').encode('utf-8'))
+            session.AESKey_is_init=True
+            session.set_terminator(session.AESinstance.AESEncript('\r\n'))
+
 
     def do_login(self, session, cmd_dict):
         '''
