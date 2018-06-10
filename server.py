@@ -111,13 +111,18 @@ class User:
 
         recv_len = 0
         recv_data = b''
+        # 每次发送和接收的缓冲区越大，文件传输越快
+        once_len = int(file_size/100)
+        once_len = max(1024, once_len)
+        once_len = min(once_len, 300000)
         while recv_len < file_size:
-            if file_size - recv_len > 1024:
-                recv_data += csock.recv(1024)
-                recv_len += 1024
+            if file_size - recv_len > once_len:
+                recv_data += csock.recv(once_len)
+                recv_len += once_len
             else:
                 recv_data += csock.recv(file_size - recv_len)
                 recv_len = file_size
+            print(recv_len)
         room.files[file_name] = recv_data   # 将文件保存在room中，以备之后给其他用户传送
 
         send_data = {'type':'remindFile'}

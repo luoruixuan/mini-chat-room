@@ -35,10 +35,10 @@ class Room:
 
     def update(self, data):
         if data['type'] == 'roomMessage':
-            self.history.append(data['user_name']+": "+data['message'])
+            self.history.append((0, data['user_name'], data['message']))    # 0代表文字信息
             self.history_len += 1
         elif data['type'] == 'remindFile':
-            self.history.append('收到了来自%s的文件<%s>,要下载吗'%(data['user_name'], data['file_name']))
+            self.history.append((1, data['user_name'], data['file_name']))  # 1代表文件信息
             self.history_len += 1
 
 class UI(tk.Frame):
@@ -138,14 +138,23 @@ class UI(tk.Frame):
         else:
             self.name_label['text'] = self.curRoom.name
         self.hist_box.delete(0.0, tk.END)
-        for i in range(room.history_len):
-            self.hist_box.insert(tk.END, room.history[i] +'\n')
+        for info in room.history:
+            if info[0] == 0:
+                self.hist_box.insert(tk.END, info[1]+':'+info[2] +'\n')
+            elif info[0] == 1:
+                btn = tk.Button(self.hist_box, text = '%s分享文件%s，点击下载'%(info[1], info[2]))
+                # self.hist_box.insert(tk.END, justify = tk.RIGHT)
         room.last_history = room.history_len
 
     def updateCurrent(self):
         # print('updateCurrent')
         for i in range(self.curRoom.last_history, self.curRoom.history_len):
-            self.hist_box.insert(tk.END, self.curRoom.history[i] + '\n')
+            info = self.curRoom.history[i]
+            if info[0] == 0:
+                self.hist_box.insert(tk.END, info[1]+':'+info[2] +'\n')
+            elif info[0] == 1:
+                btn = tk.Button(self.hist_box, text = '%s分享文件%s，点击下载'%(info[1], info[2]))
+                # self.hist_box.insert(tk.END, justify = tk.RIGHT)
         self.curRoom.last_history = self.curRoom.history_len
 
     def initLayout(self):
@@ -276,7 +285,7 @@ class UI(tk.Frame):
         self.file_name = filedialog.askopenfilename()
         if not self.file_name:
             return
-        self.curRoom.history.append(self.name+': '+'文件发送中...')
+        self.curRoom.history.append((0, self.name, '文件发送中...:)'))
         self.curRoom.history_len += 1
         self.updateCurrent()
 
@@ -297,16 +306,21 @@ class UI(tk.Frame):
             pre_data = struct.pack('128sl', os.path.basename(file_name).encode('utf-8'), os.stat(file_name).st_size)
             csock.send(pre_data)
             f = open(file_name, 'rb')
+            file_size = os.stat(file_name).st_size
+            # 合适的缓冲区大小有利于加快传输速度
+            once_len = int(file_size / 100)
+            once_len = max(1024, once_len)
+            once_len = min(once_len, 300000)
             while True:
-                pData = f.read(1024)
+                pData = f.read(once_len)
                 if not pData:
                     break
                 csock.send(pData)
             f.close()
 
-            curRoom.history.append(self.name + ': ' + '文件发送成功:)')
+            curRoom.history.append((0, self.name, '文件发送成功:)'))
         except:
-            curRoom.history.append(self.name+': '+'文件发送失败:(')
+            curRoom.history.append((0, self.name, '文件发送失败:)'))
         csock.close()
         self.curRoom.history_len += 1
         self.updateCurrent()
