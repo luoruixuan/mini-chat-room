@@ -241,7 +241,10 @@ class Hall(Room):
                 # session.SecurityPush((ServerResponse('usr already login', False) + '\r\n').encode('utf-8'))
                 # 挤掉上次的登陆session
                 last_session = self.server.active_users[name]
-                self.do_logout(last_session, dict())
+                del self.server.active_users[name]  # 服务器活跃用户列表中删除
+                for entered_room in last_session.entered_rooms.values():
+                    entered_room.remove_session(last_session)
+                last_session.handle_close()
             # 去服务器用户列表中检查
             matched = False
             for up_tuple in self.server.all_users:
@@ -643,10 +646,12 @@ class GroupRoom(Room):
         friend_session = self.server.active_users.get(friend_name, None)
         if friend_session != None:
             friend_session.enter(self)
-        # 告知其他用户 person_in
+        # 告知所有群内用户 person_in
         broad_dict = dict(type='person_in', group_name=self.room_name, usr_name=friend_name)
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(friend_session, broad_json)
+        if friend_session != None:
+            friend_session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
         # 修改数据库
         if not friend_name in self.users:
             self.users.append(friend_name)
