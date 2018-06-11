@@ -26,9 +26,10 @@ class AESmessage(object):
         msg=msg + ('\0' * add)
         iv=Random.new().read(AES.block_size)
         cipher=AES.new(self.key,AES.MODE_CFB,iv)
-        data=iv+cipher.encrypt(msg)
+        tmpdata=iv+cipher.encrypt(msg)
         #因为AES加密时候得到的字符串不一定是ascii字符集的，输出到终端或者保存时候可能存在问题
         #所以这里统一把加密后的字符串转化为16进制字符串
+        data=base64.b64encode(tmpdata)
         return data
 
     def AESDecrypt(self,msg):
@@ -36,9 +37,10 @@ class AESmessage(object):
         #return a string
         if len(msg)<16:
             return ''
-        iv=msg[:16]
+        decodemsg=base64.b64decode(msg)
+        iv=decodemsg[:16]
         cipher=AES.new(self.key, AES.MODE_CFB,iv)
-        data=(cipher.decrypt(msg[16:])).decode()
+        data=(cipher.decrypt(decodemsg[16:])).decode()
         return data.rstrip('\0')
     
 
