@@ -28,8 +28,31 @@ class ClientSession:
         self.AESinstance=AESmessage(ran_str)
         self.RSAinstance=RSAmessage(newKey=False)
         self.AESKey_is_init=False
+        self.AESKeyCommunicate()
         # by lanying
+        
+    def AESKeyCommunicate(self):
+        data=[]
+        while True:
+            while True:
+                res = self.socket.recv(self.MAX_BUFSIZE)
+                res = bytes.decode(res, encoding='utf-8')
+                data.append(res)
+                if res.endswith('\r\n'):
+                    msg = ''.join(data)
+                    js = json.loads(msg.strip(), encoding='utf-8')
+                    if js['type']=='init' and js['msg']=='RSApubKey':
+                            self.waiting = js
+                            self.RSAinstance.pubKey=bytes(js['Key'],encoding='utf-8')
+                            self.waiting_response=True
+                            break
+            if self.waiting_response:
+                self.waiting_response=False
+                self.send_AESKey(self.AESinstance.key)  # 在这里接收了response
 
+            if self.AESKey_is_init:
+                return
+        
     def recv(self):
         data = []
         while True:
@@ -52,18 +75,22 @@ class ClientSession:
                 if js['type']=='server_response':
                     if js['msg']=='please login':
                         continue
+                    
                     elif js['msg']=='AC_AESKey':    # by lanying
                         self.AESKey_is_init=True
                         pass
+                    
                     self.waiting = js
                 # by lanying
-                elif js['type']=='init':
-                    if js['msg']=='RSApubKey':
-                        self.waiting = js
-                        self.RSAinstance.pubKey=bytes(js['Key'],encoding='utf-8')
-                        self.waiting_response=True
-                        self.send_AESKey(self.AESinstance.key)
-                        continue
+                    '''
+                    elif js['type']=='init':
+                        if js['msg']=='RSApubKey':
+                            self.waiting = js
+                            self.RSAinstance.pubKey=bytes(js['Key'],encoding='utf-8')
+                            self.waiting_response=True
+                            self.send_AESKey(self.AESinstance.key)
+                            continue
+                    '''
                 # by lanying
                 else:
                     #self.msg_func(js)
@@ -86,6 +113,7 @@ class ClientSession:
         # by lanying
         if self.AESKey_is_init:
             sendmsg=self.AESinstance.AESEncript(s)
+            # print('sendmsg: ',sendmsg)
             self.socket.send(sendmsg)
             self.socket.send('\r\n'.encode('utf-8'))
         else:
@@ -93,9 +121,6 @@ class ClientSession:
         # by lanying
         while self.waiting is None:    # wait for response
             time.sleep(0.5)
-            if self.waiting_response:
-                self.waiting_response=False
-                break
         res = self.waiting
         self.lock.release()
         return res
