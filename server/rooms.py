@@ -424,6 +424,43 @@ class Hall(Room):
         if accept:
             friend_query = DataBaseInterface.UserFriends(usr_name)
             friend_query.accept(friend_name)
+            # 成为好友之后自动创建名为 “&a&b” 的房间，并把俩人拉进去
+            if usr_name < friend_name:
+                group_name = '&' + usr_name + '&' + friend_name
+                self.server.group_rooms[group_name] = GroupRoom(self.server, group_name, usr_name)  # 创建群
+                friend_session = self.server.active_users.get(friend_name, None)
+                session.enter(self.server.group_rooms[group_name])
+                if friend_session != None:
+                    friend_session.enter(self.server.group_rooms[group_name])
+                broad_dict = dict(type='usr_invited', group_name=group_name,
+                                  msg='You are invited into ' + group_name)
+                broad_json = json.dumps(broad_dict, ensure_ascii=False)
+                session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+                if friend_session != None:
+                    friend_session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+                if not friend_name in self.server.group_rooms[group_name].users:
+                    self.server.group_rooms[group_name].users.append(friend_name)
+                group_query = DataBaseInterface.ChatGroup(usr_name)
+                group_query.CreateGroup(group_name)
+                group_query.addGroupMem(friend_name)
+            else:
+                group_name = '&' + friend_name + '&' + usr_name
+                self.server.group_rooms[group_name] = GroupRoom(self.server, group_name, friend_name)  # 创建群
+                friend_session = self.server.active_users.get(friend_name, None)
+                session.enter(self.server.group_rooms[group_name])
+                if friend_session != None:
+                    friend_session.enter(self.server.group_rooms[group_name])
+                broad_dict = dict(type='usr_invited', group_name=group_name,
+                                  msg='You are invited into ' + group_name)
+                broad_json = json.dumps(broad_dict, ensure_ascii=False)
+                session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+                if friend_session != None:
+                    friend_session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+                if not friend_name in self.server.group_rooms[group_name].users:
+                    self.server.group_rooms[group_name].users.append(friend_name)
+                group_query = DataBaseInterface.ChatGroup(friend_name)
+                group_query.CreateGroup(group_name)
+                group_query.addGroupMem(usr_name)
             session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
         else:
             friend_query = DataBaseInterface.UserFriends(usr_name)
@@ -651,6 +688,10 @@ class GroupRoom(Room):
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(friend_session, broad_json)
         if friend_session != None:
+            # 给被邀请人发一个 usr_invited
+            broad_dict = dict(type='usr_invited', group_name=self.room_name,
+                              msg='You are invited into ' + self.room_name)
+            broad_json = json.dumps(broad_dict, ensure_ascii=False)
             friend_session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
         # 修改数据库
         if not friend_name in self.users:
