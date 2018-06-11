@@ -91,8 +91,12 @@ class CommandHandler(object):
                 # 一对一消息，todo
                 pass
             elif cmd_dict['type'] == 'file_message':
+                # 用户请求传送文件
                 method = getattr(self, 'do_file_message', None)
-
+                method(session, cmd_dict)
+            elif cmd_dict['type'] == 'download_file':
+                #用户请求下载文件
+                method = getattr(self, 'do_download_file', None)
                 method(session, cmd_dict)
 
                 # raise BadCmd
@@ -427,6 +431,43 @@ class Hall(Room):
         if accept:
             friend_query = DataBaseInterface.UserFriends(usr_name)
             friend_query.accept(friend_name)
+            # 成为好友之后自动创建名为 “&a&b” 的房间，并把俩人拉进去
+            if usr_name < friend_name:
+                group_name = '&' + usr_name + '&' + friend_name
+                self.server.group_rooms[group_name] = GroupRoom(self.server, group_name, usr_name)  # 创建群
+                friend_session = self.server.active_users.get(friend_name, None)
+                session.enter(self.server.group_rooms[group_name])
+                if friend_session != None:
+                    friend_session.enter(self.server.group_rooms[group_name])
+                broad_dict = dict(type='usr_invited', group_name=group_name,
+                                  msg='You are invited into ' + group_name)
+                broad_json = json.dumps(broad_dict, ensure_ascii=False)
+                session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+                if friend_session != None:
+                    friend_session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+                if not friend_name in self.server.group_rooms[group_name].users:
+                    self.server.group_rooms[group_name].users.append(friend_name)
+                group_query = DataBaseInterface.ChatGroup(usr_name)
+                group_query.CreateGroup(group_name)
+                group_query.addGroupMem(friend_name)
+            else:
+                group_name = '&' + friend_name + '&' + usr_name
+                self.server.group_rooms[group_name] = GroupRoom(self.server, group_name, friend_name)  # 创建群
+                friend_session = self.server.active_users.get(friend_name, None)
+                session.enter(self.server.group_rooms[group_name])
+                if friend_session != None:
+                    friend_session.enter(self.server.group_rooms[group_name])
+                broad_dict = dict(type='usr_invited', group_name=group_name,
+                                  msg='You are invited into ' + group_name)
+                broad_json = json.dumps(broad_dict, ensure_ascii=False)
+                session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+                if friend_session != None:
+                    friend_session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+                if not friend_name in self.server.group_rooms[group_name].users:
+                    self.server.group_rooms[group_name].users.append(friend_name)
+                group_query = DataBaseInterface.ChatGroup(friend_name)
+                group_query.CreateGroup(group_name)
+                group_query.addGroupMem(usr_name)
             session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
         else:
             friend_query = DataBaseInterface.UserFriends(usr_name)
@@ -645,11 +686,10 @@ class GroupRoom(Room):
         usr_name = session.usr_name
 
         host = '0.0.0.0'
-        send_data = dict(type = 'server_response', msg = '', host = host, port = port)
+        send_data = dict(type = 'server_response', msg = 'for share', host = host, port = port)
         send_data = json.dumps(send_data)
         send_data = (send_data + '\r\n').encode('utf-8')
         session.SecurityPush(send_data)
-
         def process_recv_file(room):
             print('服务器进入接收文件的线程了')
             sock, csock = None, None
@@ -701,6 +741,63 @@ class GroupRoom(Room):
         t = threading.Thread(target=process_recv_file, args=(self,))
         t.start()
 
+    def do_download_file(self, session, message_dict):
+        # 向需要下载文件的用户传输文件
+        print('处理来自用户的文件请求')
+        server_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        port = 8003
+        file_name = message_dict['file_name']
+        usr_name = session.usr_name
+
+        host = '0.0.0.0'
+        send_data = dict(type = 'server_response', msg = 'for download', host = host, port = port)
+        send_data = json.dumps(send_data)
+        send_data = (send_data + '\r\n').encode('utf-8')
+        session.SecurityPush(send_data)
+
+        def process_send_file(room, file_name):
+            print('服务器进入发送文件的线程了')
+            sock, csock = None, None
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind(('0.0.0.0', port))
+            sock.listen(1)
+            print('建立套接字(%s,%d)成功' % (host, port))
+            csock, caddr = sock.accept()
+            print('客户机连接到了')
+
+            file_data = room.files[file_name]
+            file_len = len(file_data)
+
+            pre_data = struct.pack('128sl', file_name.encode('utf-8'), file_len)
+            csock.sendall(pre_data)
+
+            print('将发送长为%d的文件%s'%(file_len, file_name))
+            # 发送文件
+            # 先设置缓冲区的大小，大的缓冲区对于加快大文件的传输很有用
+            buf_len = int(file_len/100)
+            buf_len = max(100, buf_len)
+            buf_len = min(300000, buf_len)
+            send_len = 0
+            while send_len != file_len:
+                if send_len + buf_len < file_len:
+                    csock.sendall(file_data[send_len:send_len+buf_len])
+                    send_len += buf_len
+                else:
+                    csock.sendall(file_data[send_len:])
+                    send_len = file_len
+                print('当前发送长度：', send_len)
+            print('服务器发送文件成功')
+
+            if csock is not None:
+                csock.close()
+            if sock is not None:
+                sock.close()
+
+            print('向用户%s的送文件%s完成' % (usr_name, file_name))
+
+        t = threading.Thread(target=process_send_file, args=(self,file_name))
+        t.start()
+
     def do_invite_friend(self, session, cmd_dict):
         '''
         拉好友进群，如果在线，就将对方的session拉进来
@@ -720,7 +817,12 @@ class GroupRoom(Room):
         broad_json = json.dumps(broad_dict, ensure_ascii=False)
         self.broadcast(friend_session, broad_json)
         if friend_session != None:
+            # 给被邀请人发一个usr_invited
+            broad_dict = dict(type='usr_invited', group_name=self.room_name,
+                              msg='You are invited into ' + self.room_name)
+            broad_json = json.dumps(broad_dict, ensure_ascii=False)
             friend_session.SecurityPush((broad_json + '\r\n').encode('utf-8'))
+
         # 修改数据库
         if not friend_name in self.users:
             self.users.append(friend_name)

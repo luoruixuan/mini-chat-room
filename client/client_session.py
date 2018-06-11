@@ -282,6 +282,17 @@ class ClientSession:
         port = int(res['port'])
         host = res['host']
         return host, port
+
+    def download_file(self, room_name, file_name):
+        request = {
+            'type': 'download_file',
+            'group_name': room_name,
+            'file_name': file_name
+        }
+        res = self.send(request)
+        port = int(res['port'])
+        host = res['host']
+        return host, port
     
     # by lanying
     # 这里不设返回值，因为在recv里调用send，send里调用wait造成死锁，所以不等返回

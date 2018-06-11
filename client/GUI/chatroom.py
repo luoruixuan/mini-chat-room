@@ -60,11 +60,13 @@ class ChatroomUI:
         self.tk.after(0, self.loop)
 
     def loop(self):
+        js = None
         try:
             js = self.session.queue.get_nowait()
         except:
-            pass
-        self.msg_func(js)
+            js = None
+        if js is not None:
+            self.msg_func(js)
         self.tk.after(500, self.loop)
 
     def msg_func(self, js):
@@ -84,6 +86,9 @@ class ChatroomUI:
         elif js['type'] == 'usr_removed':
             room_name = js['group_name']
             self.main_part.usr_removed(room_name)
+        elif js['type'] == 'usr_invited':
+            room_name = js['group_name']
+            self.main_part.newroom(room_name)
 
     def logout(self):
         self.tk.destroy()
@@ -235,6 +240,7 @@ class Room:
         self.all_rooms = {}
         tl = self.tk #Toplevel(self.tk)
         #tl.title('Chat room %s'%room_name)
+        self.store_dir = os.getcwd()        #下载的文件的安放路径
         width, height = 500, 400
         tl.minsize(width, height)
         self.tl = tl
@@ -492,7 +498,7 @@ class Room:
         # print('Accpet: '+name)
         tl.destroy()
         lb.delete(pl, pl)
-        self.friend_list.insert(END, name) 
+        # self.friend_list.insert(END, name)
     def reject_friend(self, name, lb, pl, tl):
         status, msg = self.UI.session.add_friend_response(self.usr_name, name, False)
         if not status:
@@ -617,7 +623,9 @@ class Room:
             
         #lst = ['1', '2', '3', '4']
         for n in lst:
-            self.room_list.insert(END, n)
+            # self.room_list.insert(END, n)
+            if not n.startswith('&'):
+                self.room_list.insert(END, n)
 
         status, msg = self.UI.session.get_friend_list(self.usr_name)
         if not status:
@@ -674,10 +682,9 @@ class Room:
         if room_name == 'Hall':
             messagebox.showerror('提醒', '大厅内不能发送文件')
             return
-        # file_name = filedialog.askopenfilename()
-        # if not file_name:
-        #     return
-        file_path = 'D:\实验室\笔记.txt'
+        file_path = filedialog.askopenfilename()
+        if not file_path:
+            return
         self.recv_msg(room_name, '文件发送中...')
         file_name = os.path.basename(file_path)
         # status, msg = self.UI.session.share_file(room_name, file_name)
@@ -688,7 +695,6 @@ class Room:
 
         t = threading.Thread(target=self.process_send_file, args=(host, port, room_name, file_path))
         t.start()
-
 
     def process_send_file(self, host, port, room_name, file_path):
         # 发送文件的线程
@@ -724,17 +730,99 @@ class Room:
         user_name = js['usr_name']
         file_name = js['file_name']
         data_time = js['data_time']
-
-        self.recv_msg(room_name, '你收到了来自' + user_name + '的文件（%s）' % file_name+',存放在了%s下'%file_dir)
+        room = self.all_rooms[room_name]
+        room['files'].append(file_name)
+        if room_name == self.room_name:
+            self.file_listbox.insert(END, file_name+'\n')
 
     def download_file(self):
-        # TODO 文件下载
-        lb = self.file_listbox
+        if self.room_name == 'Hall':
+            messagebox.showerror('提醒', '大厅内不能发送文件')
+            return
         try:
-            fn = lb.get(lb.curselection())
+            fn = self.file_listbox.get(self.file_listbox.curselection())
+            fn = fn.strip()
         except:
             return
-        print('Downloading %s:'%fn)
+        room_name = self.room_name
+
+        print('room_name: %s, Downloading %s:' % (room_name, fn))
+
+        c = Toplevel()
+        c.title('下载文件')
+        width, height = 300, 200
+        c.minsize(width=width, height=height)
+        c.maxsize(width=width, height=height)
+        c.geometry('%dx%d+%d+%d' % (width, height, (c.winfo_screenwidth() - width) / 2, (c.winfo_screenheight() - height) / 2))
+        note = Text(c, width = 30, height = 4,bg = '#efefff', font = font.Font(family='楷体', size = 15))
+        note.insert(END, '确定要下载该文件吗?\n文件存放目录为%s'%self.store_dir)
+        yes = Button(c, text = '确定', command = lambda :sure())
+        no = Button(c, text = '取消', command = lambda :cancle())
+        note.place(x = 2, y = 2)
+        yes.place(x = 140, y = 150)
+        no.place(x = 70, y = 150)
+
+        def cancle():
+            c.destroy()
+
+        self = self
+        def sure():
+            self.true_download_file(room_name, fn)
+            c.destroy()
+
+    def true_download_file(self, room_name, file_name):
+        # 先向服务器发送请求，说自己要下载文件
+        # 与share_file的内容何其类似
+        self.recv_msg(room_name, '文件接收中...')
+        host, port = self.UI.session.download_file(room_name, file_name)
+        if host == '0.0.0.0':
+            host = '127.0.0.1'
+        print('host:', host, 'port:', port)
+
+        t = threading.Thread(target=self.process_recv_file, args=(host, port, room_name))
+        t.start()
+
+    def process_recv_file(self, host, port, room_name):
+        # 下载文件的线程
+        # 发送文件的线程
+        print('进入线程下载文件了')
+        csock = None
+        file_name = ''
+        try:
+            csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            print('port:', port, type(port), host, type(host))
+            csock.connect((host, port))
+            print('连接(%s, %d)成功'%(host, port))
+
+            pre_data_len = struct.calcsize('128sl')
+            pre_data = csock.recv(pre_data_len)
+            file_name, file_len = struct.unpack('128sl', pre_data)
+            file_name = file_name.decode('utf-8').strip('\00')
+
+            buf_len = int(file_len/100)
+            buf_len = min(1024, buf_len)
+            buf_len = max(300000, buf_len)
+            recv_data = b''
+            recv_len = 0
+            while recv_len != file_len:
+                if recv_len + buf_len < file_len:
+                    recv_data += csock.recv(buf_len)
+                    recv_len = len(recv_data)   #不能写为recv_len += buf_len
+                else:
+                    recv_data += csock.recv(file_len-recv_len)
+                    recv_len = len(recv_data)
+                print('用户接受到的数据长度：', recv_len)
+            f = open(os.path.join(os.getcwd(), file_name), 'wb')
+            f.write(recv_data)
+            f.close()
+            print('接收完毕')
+            # messagebox.showinfo('文件', '房间%s内的文件%s接收成功'%(room_name, file_name))
+        except:
+            # messagebox.showinfo('文件', '房间%s内的文件%s接收失败' % (room_name, file_name))
+            pass
+        if csock is not None:
+            csock.close()
+
 
     def send_msg(self):
         room_name = self.room_name
@@ -792,7 +880,17 @@ class Room:
                 self.room_list.delete(i,i)
                 break
             i+=1
-            
+
+    def newroom(self, room_name):
+        if room_name.startswith('&'):
+            _,u,v = room_name.split('&')
+            if u == self.usr_name:
+                x = v
+            else:
+                x = u
+            self.friend_list.insert(END, x)
+        else:
+            self.room_list.insert(END, room_name)
 
     def leave(self, room_name):
         self.tl.destroy()
