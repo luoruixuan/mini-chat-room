@@ -681,11 +681,11 @@ class GroupRoom(Room):
         # 功能：向客户端发送端口信息
         print('处理来自用户分享的文件')
         server_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        port = 8003
+        port = session.server.get_avaiable_port()
         file_name = file_message_dict['file_name']
         usr_name = session.usr_name
 
-        host = '0.0.0.0'
+        host = session.server.host
         send_data = dict(type = 'server_response', msg = 'for share', host = host, port = port)
         send_data = json.dumps(send_data)
         send_data = (send_data + '\r\n').encode('utf-8')
@@ -726,7 +726,7 @@ class GroupRoom(Room):
                 csock.close()
             if sock is not None:
                 sock.close()
-
+            session.server.release_port(port)   #释放端口
             room.files[file_name] = recv_data     # 房间存储接收到的数据
 
             # 向room内的其他用户发送文件提醒的消息
@@ -745,17 +745,17 @@ class GroupRoom(Room):
         # 向需要下载文件的用户传输文件
         print('处理来自用户的文件请求')
         server_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        port = 8003
+        port = session.server.get_avaiable_port()   #申请端口
         file_name = message_dict['file_name']
         usr_name = session.usr_name
 
-        host = '0.0.0.0'
+        host = session.server.host
         send_data = dict(type = 'server_response', msg = 'for download', host = host, port = port)
         send_data = json.dumps(send_data)
         send_data = (send_data + '\r\n').encode('utf-8')
         session.SecurityPush(send_data)
 
-        def process_send_file(room, file_name):
+        def process_send_file(room, file_name, session):
             print('服务器进入发送文件的线程了')
             sock, csock = None, None
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -792,10 +792,10 @@ class GroupRoom(Room):
                 csock.close()
             if sock is not None:
                 sock.close()
-
+            session.server.release_port(port)
             print('向用户%s的送文件%s完成' % (usr_name, file_name))
 
-        t = threading.Thread(target=process_send_file, args=(self,file_name))
+        t = threading.Thread(target=process_send_file, args=(self,file_name,session))
         t.start()
 
     def do_invite_friend(self, session, cmd_dict):

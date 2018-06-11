@@ -7,6 +7,8 @@ import DataBaseInterface
 from project_logger import logger
 from chat_session import ChatSession
 from rooms import Hall, GroupRoom
+from threading import Lock
+import time
 
 
 class ChatServer(asyncore.dispatcher):
@@ -34,6 +36,12 @@ class ChatServer(asyncore.dispatcher):
         self.set_reuse_addr()
         self.bind((host, port))
         self.listen(10)
+
+        self.host = host
+        self.port_num = 6
+        self.file_port = self.port_num*[1]
+        self.file_base_port = 8001  # 文件传输用8001~8001+self.port_num这几个端口
+        self.port_lock = Lock()
 
         self.conn_sessions = []  # 连接列表
         self.active_users = {}  # 活跃用户, {"用户名": chat_session}
@@ -72,6 +80,28 @@ class ChatServer(asyncore.dispatcher):
         conn, addr = self.accept()
         chat_session = ChatSession(self, conn)
         self.conn_sessions.append(chat_session)
+
+    def get_avaiable_port(self):
+        # 消费者
+        print('用户请求端口')
+        self.port_lock.acquire()
+        print('用户获得锁')
+        idx = -1
+        while idx == -1:
+            for i in range(0, self.port_num):
+                if self.file_port[i] == 1:
+                    idx = i
+                    self.file_port[i] = 0
+                    self.port_lock.release()
+                    return self.file_base_port + i
+            time.sleep(0.1)
+
+
+    def release_port(self, port):
+        print('释放端口', port)
+        idx = port - self.file_base_port
+        self.file_port[idx] = 1
+
 
 
 if __name__ == '__main__':

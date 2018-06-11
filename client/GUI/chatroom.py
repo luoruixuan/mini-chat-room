@@ -241,7 +241,7 @@ class Room:
         tl = self.tk #Toplevel(self.tk)
         #tl.title('Chat room %s'%room_name)
         self.store_dir = os.getcwd()        #下载的文件的安放路径
-        width, height = 500, 400
+        width, height = 1000, 800
         tl.minsize(width, height)
         self.tl = tl
         # 房间信息、房主设置

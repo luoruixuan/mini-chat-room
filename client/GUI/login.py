@@ -23,12 +23,12 @@ class LoginUI:
         Label(tk, text='Password: ', font=ft).place(x=50, y=190)
         
         var_usr_name = StringVar()
-        var_usr_name.set('lrx')
+        # var_usr_name.set('lrx')
         entry_usr_name = Entry(tk, textvariable=var_usr_name, font=ft)
         entry_usr_name.place(x=190, y=150)
         self.entry_usr_name = entry_usr_name
         var_usr_pwd = StringVar()
-        var_usr_pwd.set('123456')
+        # var_usr_pwd.set('123456')
         entry_usr_pwd = Entry(tk, textvariable=var_usr_pwd, show='*', font=ft)
         entry_usr_pwd.place(x=190, y=190)
         self.entry_usr_pwd = entry_usr_pwd
