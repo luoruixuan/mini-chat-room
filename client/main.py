@@ -3,7 +3,7 @@ import sys
 sys.path.append('GUI')
 from login import LoginUI
 
-local = False
+local = True
 
 if not local:
     with open('config.txt') as f:

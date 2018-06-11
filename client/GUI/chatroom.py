@@ -81,7 +81,10 @@ class ChatroomUI:
         elif js['type'] == 'usr_removed':
             room_name = js['group_name']
             self.main_part.usr_removed(room_name)
-
+        elif js['type'] == 'usr_invited':
+            room_name = js['group_name']
+            self.main_part.newroom(room_name)
+            
     def logout(self):
         self.tk.destroy()
         self.session.logout(self.usr_name)
@@ -489,7 +492,6 @@ class Room:
         # print('Accpet: '+name)
         tl.destroy()
         lb.delete(pl, pl)
-        self.friend_list.insert(END, name) 
     def reject_friend(self, name, lb, pl, tl):
         status, msg = self.UI.session.add_friend_response(self.usr_name, name, False)
         if not status:
@@ -614,7 +616,8 @@ class Room:
             
         #lst = ['1', '2', '3', '4']
         for n in lst:
-            self.room_list.insert(END, n)
+            if not n.startswith('&'):
+                self.room_list.insert(END, n)
 
         status, msg = self.UI.session.get_friend_list(self.usr_name)
         if not status:
@@ -754,7 +757,16 @@ class Room:
                 self.room_list.delete(i,i)
                 break
             i+=1
-            
+    def newroom(self, room_name):
+        if room_name.startswith('&'):
+            _,u,v = room_name.split('&')
+            if u==self.usr_name:
+                x = v
+            else:
+                x = u
+            self.friend_list.insert(END, x)
+        else:
+            self.room_list.insert(END, room_name)
 
     def leave(self, room_name):
         self.tl.destroy()
