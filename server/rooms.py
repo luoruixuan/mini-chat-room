@@ -6,6 +6,9 @@ import datetime
 import DataBaseInterface
 from project_logger import logger
 from secure_transmission import *
+import threading
+import socket
+import struct
 
 
 class BadCmd(Exception):
@@ -473,6 +476,7 @@ class GroupRoom(Room):
         '''
         Room.__init__(self, server, room_name)
         self.creator = creator  # 群主
+        self.files = {} # 文件名：文件内容（内容为二进制）
 
     def add_session(self, session):
         '''
@@ -622,15 +626,80 @@ class GroupRoom(Room):
 
         session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
 
+    # def do_file_message(self, session, file_message_dict):
+    #     server_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    #     broad_dict = dict(type='person_share_file', group_name=self.room_name,
+    #                       usr_name=session.usr_name, file_name=file_message_dict['file_name'],
+    #                       file_content=file_message_dict['file_content'],
+    #                       date_time=server_time)
+    #     broad_json = json.dumps(broad_dict, ensure_ascii=False)
+    #     self.broadcast(session, broad_json)
+    #     session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+
     def do_file_message(self, session, file_message_dict):
+        # 功能：向客户端发送端口信息
+        print('处理来自用户分享的文件')
         server_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        broad_dict = dict(type='person_share_file', group_name=self.room_name,
-                          usr_name=session.usr_name, file_name=file_message_dict['file_name'],
-                          file_content=file_message_dict['file_content'],
-                          date_time=server_time)
-        broad_json = json.dumps(broad_dict, ensure_ascii=False)
-        self.broadcast(session, broad_json)
-        session.SecurityPush((ServerResponse('Succeed.') + '\r\n').encode('utf-8'))
+        port = 8003
+        file_name = file_message_dict['file_name']
+        usr_name = session.usr_name
+
+        host = '0.0.0.0'
+        send_data = dict(type = 'server_response', msg = '', host = host, port = port)
+        send_data = json.dumps(send_data)
+        send_data = (send_data + '\r\n').encode('utf-8')
+        session.SecurityPush(send_data)
+
+        def process_recv_file(room):
+            print('服务器进入接收文件的线程了')
+            sock, csock = None, None
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind(('0.0.0.0', port))
+            sock.listen(1)
+            print('建立套接字(%s,%d)成功' % (host, port))
+            csock, caddr = sock.accept()
+            print('客户机连接到了')
+
+            pre_data_len = struct.calcsize('128sl')
+            pre_data = csock.recv(pre_data_len)
+            file_name, file_len = struct.unpack('128sl', pre_data)
+            file_name = file_name.decode('utf-8').strip('\00')
+
+            print('将接收长为%d的文件%s'%(file_len, file_name))
+            # 接收文件
+            buf_len = int(file_len/100)
+            buf_len = max(100, buf_len)
+            buf_len = min(300000, buf_len)
+            recv_data = b''
+            recv_len = 0
+            while recv_len != file_len:
+                if recv_len + buf_len < recv_len:
+                    recv_data += csock.recv(buf_len)
+                    recv_len = len(recv_data)
+                else:
+                    recv_data += csock.recv(file_len - recv_len)
+                    recv_len = len(recv_data)
+                print('当前接收长度：', recv_len)
+            print('服务器接受文件成功')
+
+            if csock is not None:
+                csock.close()
+            if sock is not None:
+                sock.close()
+
+            room.files[file_name] = recv_data     # 房间存储接收到的数据
+
+            # 向room内的其他用户发送文件提醒的消息
+            broad_data = dict(type = 'person_share_file', usr_name = usr_name,
+                             group_name = room.room_name, file_name = file_name,
+                             data_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            broad_data = json.dumps(broad_data)
+            room.broadcast(session, broad_data)
+
+            print('用户%s的文件%s接收完毕' % (usr_name, file_name))
+
+        t = threading.Thread(target=process_recv_file, args=(self,))
+        t.start()
 
     def do_invite_friend(self, session, cmd_dict):
         '''

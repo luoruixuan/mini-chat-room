@@ -5,6 +5,9 @@ import os
 sys.path.append('..')
 from client_session import *
 import datetime
+import socket
+import struct
+import threading
 
 class ChatroomUI:
     def __init__(self, session, usr_name, **args):
@@ -59,9 +62,9 @@ class ChatroomUI:
     def loop(self):
         try:
             js = self.session.queue.get_nowait()
-            self.msg_func(js)
         except:
             pass
+        self.msg_func(js)
         self.tk.after(500, self.loop)
 
     def msg_func(self, js):
@@ -232,7 +235,7 @@ class Room:
         self.all_rooms = {}
         tl = self.tk #Toplevel(self.tk)
         #tl.title('Chat room %s'%room_name)
-        width, height = 1000, 800
+        width, height = 500, 400
         tl.minsize(width, height)
         self.tl = tl
         # 房间信息、房主设置
@@ -668,26 +671,61 @@ class Room:
         self.recv_msg(self.room_name, s)
 
     def share_file(self, room_name):
-        file_name = filedialog.askopenfilename()
-        if not file_name:
+        if room_name == 'Hall':
+            messagebox.showerror('提醒', '大厅内不能发送文件')
             return
-        f = open(file_name, 'r')
-        file_content = f.read()
-        f.close()
-        file_name = file_name.split('/')[-1]
-        status, msg = self.UI.session.share_file(room_name, file_name, file_content)
-        if not status:
-            messagebox.showerror('Fail', msg)
+        # file_name = filedialog.askopenfilename()
+        # if not file_name:
+        #     return
+        file_path = 'D:\实验室\笔记.txt'
+        self.recv_msg(room_name, '文件发送中...')
+        file_name = os.path.basename(file_path)
+        # status, msg = self.UI.session.share_file(room_name, file_name)
+        host, port = self.UI.session.share_file(room_name, file_name)
+        if host == '0.0.0.0':
+            host = '127.0.0.1'
+        print('host:', host, 'port:', port)
 
-    def get_file(self, js):
+        t = threading.Thread(target=self.process_send_file, args=(host, port, room_name, file_path))
+        t.start()
+
+
+    def process_send_file(self, host, port, room_name, file_path):
+        # 发送文件的线程
+        print('进入线程分享文件了')
+        csock = None
+        csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print('port:', port, type(port), host, type(host))
+        csock.connect((host, port))
+        print('连接(%s, %d)成功'%(host, port))
+        file_name = os.path.basename(file_path)
+        file_len = os.stat(file_path).st_size
+        pre_data = struct.pack('128sl', file_name.encode('utf-8'), file_len)
+        csock.sendall(pre_data)
+        print('将发送长为%d的文件%s' % (file_len, file_name))
+
+        f = open(file_path, 'rb')
+        buf_len = int(file_len/100)
+        buf_len = min(1024, buf_len)
+        buf_len = max(300000, buf_len)
+        while True:
+            buf = f.read(buf_len)
+            if not buf:
+                break
+            csock.sendall(buf)
+        f.close()
+        print('发送完毕')
+        if csock is not None:
+            csock.close()
+
+
+    def get_file(self, room_name, js):
+        print('收到文件提醒了')
         user_name = js['usr_name']
         file_name = js['file_name']
-        file_content = js['file_content']
-        file_dir = os.getcwd()
-        f = open(file_dir+'/'+file_name, 'w')
-        f.write(file_content)
-        f.close()
-        self.recv_msg('你收到了来自' + user_name + '的文件（%s）' % file_name+',存放在了%s下'%file_dir)
+        data_time = js['data_time']
+
+        self.recv_msg(room_name, '你收到了来自' + user_name + '的文件（%s）' % file_name+',存放在了%s下'%file_dir)
 
     def download_file(self):
         # TODO 文件下载
