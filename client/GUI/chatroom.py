@@ -891,6 +891,7 @@ class Room:
             self.friend_list.insert(END, x)
         else:
             self.room_list.insert(END, room_name)
+        self.get_room_info(room_name)
 
     def leave(self, room_name):
         self.tl.destroy()
