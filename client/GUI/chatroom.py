@@ -706,7 +706,7 @@ class Room:
         print('连接(%s, %d)成功'%(host, port))
         file_name = os.path.basename(file_path)
         file_len = os.stat(file_path).st_size
-        pre_data = struct.pack('128sl', file_name.encode('utf-8'), file_len)
+        pre_data = struct.pack('128si', file_name.encode('utf-8'), file_len)
         csock.sendall(pre_data)
         print('将发送长为%d的文件%s' % (file_len, file_name))
 
@@ -794,9 +794,9 @@ class Room:
             csock.connect((host, port))
             print('连接(%s, %d)成功'%(host, port))
 
-            pre_data_len = struct.calcsize('128sl')
+            pre_data_len = struct.calcsize('128si')
             pre_data = csock.recv(pre_data_len)
-            file_name, file_len = struct.unpack('128sl', pre_data)
+            file_name, file_len = struct.unpack('128si', pre_data)
             file_name = file_name.decode('utf-8').strip('\00')
 
             buf_len = int(file_len/100)
