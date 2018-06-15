@@ -97,13 +97,14 @@ class ChatSession(asynchat.async_chat):
     # by lanying
     def SecurityPush(self, sendbuffer):
         if self.AESKey_is_init:
+            sendbuffer = str(sendbuffer, encoding='utf-8')
             while len(sendbuffer)>512:
                 tmp=sendbuffer[0:512]
                 sendbuffer=sendbuffer[512:]
-                tmp = self.AESinstance.AESEncript(str(tmp, encoding='utf-8'))
+                tmp = self.AESinstance.AESEncript(tmp)
                 self.push(tmp)
             if len(sendbuffer)>0:
-                sendbuffer = self.AESinstance.AESEncript(str(sendbuffer, encoding='utf-8'))
+                sendbuffer = self.AESinstance.AESEncript(sendbuffer)
                 self.push(sendbuffer)
         else:
             self.push(sendbuffer)
